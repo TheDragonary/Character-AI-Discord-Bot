@@ -17,7 +17,10 @@ for (const folder of commandFolders) {
 		const filePath = path.join(commandsPath, file);
 		const command = require(filePath);
 		if ('data' in command && 'execute' in command) {
-			commands.push(command.data.toJSON());
+			const json = command.data.toJSON();
+            json.integration_types = [0, 1]; // Guild and User (DM)
+            json.contexts = [0, 1, 2];       // Guild, bot DMs, private chats
+            commands.push(json);
 		} else {
 			console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
 		}
