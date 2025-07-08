@@ -62,14 +62,23 @@ module.exports = {
             console.log(`\nModel used: ${model}\nUser: ${interaction.user.username}\nLocation: ${interaction.guild ? `${interaction.guild.name} - ${interaction.channel.name}` : `${interaction.user.username} - DM`}\nPrompt: ${prompt}`);
 
             const metadata = await extractImageData(image.url);
-            const safeReplace = (str) => str.replace(/\[user\]|\{user\}|\{\{user\}\}/gi, username);
+
+            const safeReplace = (str) => str
+                .replace(/\{\{user\}\}/gi, username)
+                .replace(/\{\{char\}\}/gi, charName);
 
             const username = interaction.user.displayName || interaction.user.username;
             const charName = metadata.data?.name || metadata.name ||  'the character';
             const description = safeReplace(metadata.data?.description || metadata.description || '');
             const personality = safeReplace(metadata.data?.personality || metadata.personality || '');
 
-            const systemPrompt = `You are now roleplaying as ${charName}. Here is your character card description: ${description}\nHere is your personality: ${personality}\nStay in character and respond as them in a roleplay conversation. Do not break character or refer to yourself as an AI. Always start your response with: \"${charName}: \"`;
+            let systemPrompt = `You are now roleplaying as ${charName}. Here is your character card description: ${description}\n`;
+
+            if (personality) {
+                systemPrompt += `Here is your personality: ${personality}\n`;
+            }
+
+            systemPrompt += `Stay in character and respond as them in a roleplay conversation. Do not break character or refer to yourself as an AI. Always start your response with: \"${charName}: \"`;
 
             console.log(`Character: ${charName}`);
 
