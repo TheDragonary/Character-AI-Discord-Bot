@@ -31,7 +31,7 @@ async function extractImageData(imageUrl) {
     }
 
     if (!character) {
-        throw new Error('Character card metadata not found in PNG.');
+        throw new Error('Image contains no character card metadata.');
     }
 
     const decodedString = atob(character);
@@ -55,32 +55,40 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply();
 
-        const prompt = interaction.options.getString('prompt');
-        const image = interaction.options.getAttachment('card');
-        const metadata = await extractImageData(image.url);
-        const safeReplace = (str) => str.replace(/\[user\]|\{user\}|\{\{user\}\}/gi, username);
+        try {
+            const prompt = interaction.options.getString('prompt');
+            const image = interaction.options.getAttachment('card');
 
-        const username = interaction.user.displayName || interaction.user.username;
-        const charName = metadata.data?.name || metadata.name ||  'the character';
-        const description = safeReplace(metadata.data?.description || metadata.description || '');
-        const personality = safeReplace(metadata.data?.personality || metadata.personality || '');
+            console.log(`\nModel used: ${model}\nUser: ${interaction.user.username}\nLocation: ${interaction.guild ? `${interaction.guild.name} - ${interaction.channel.name}` : `${interaction.user.username} - DM`}\nPrompt: ${prompt}`);
 
-        const systemPrompt = `You are now roleplaying as ${charName}. Here is your character card description: ${description}\nHere is your personality: ${personality}\nStay in character and respond as them in a roleplay conversation. Do not break character or refer to yourself as an AI. Always start your response with: \"${charName}: \"`;
+            const metadata = await extractImageData(image.url);
+            const safeReplace = (str) => str.replace(/\[user\]|\{user\}|\{\{user\}\}/gi, username);
 
-        console.log(`Model used: ${model}\nUser: ${interaction.user.username}\nLocation: ${interaction.guild ? `${interaction.guild.name} - ${interaction.channel.name}` : `${interaction.user.username} - DM`}\nPrompt: ${prompt}`);
+            const username = interaction.user.displayName || interaction.user.username;
+            const charName = metadata.data?.name || metadata.name ||  'the character';
+            const description = safeReplace(metadata.data?.description || metadata.description || '');
+            const personality = safeReplace(metadata.data?.personality || metadata.personality || '');
 
-        const aiResponse = await openai.chat.completions.create({
-            model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.9
-        });
+            const systemPrompt = `You are now roleplaying as ${charName}. Here is your character card description: ${description}\nHere is your personality: ${personality}\nStay in character and respond as them in a roleplay conversation. Do not break character or refer to yourself as an AI. Always start your response with: \"${charName}: \"`;
 
-        const response = aiResponse.choices[0]?.message?.content;
-        console.log(`Response: ${response}`);
+            console.log(`Character: ${charName}`);
 
-        await interaction.editReply(response);
+            const aiResponse = await openai.chat.completions.create({
+                model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.9
+            });
+
+            const response = aiResponse.choices[0]?.message?.content;
+            console.log(`Response: ${response}`);
+
+            await interaction.editReply(response);
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply(error.message || 'There was an error while executing this command!');
+        }
     },
 };
