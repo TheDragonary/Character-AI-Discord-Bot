@@ -82,19 +82,16 @@ module.exports = {
 
             console.log(`Character: ${charName}`);
 
-            const aiResponse = await openai.chat.completions.create({
+            const response = await openai.chat.completions.create({
                 model,
                 messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: prompt }
+                    { role: 'user', content: `${systemPrompt}\nPrompt: ${prompt}` }
                 ],
-                temperature: 0.9
+                temperature: 1.0
             });
 
-            const response = aiResponse.choices[0]?.message?.content;
-            console.log(`Response: ${response}`);
-
-            await interaction.editReply(response);
+            console.log(`Response: ${response.choices[0].message.content}`);
+            await interaction.editReply(response.choices[0].message.content);
         } catch (error) {
             console.error(error);
             await interaction.editReply(error.message || 'There was an error while executing this command!');
