@@ -2,7 +2,7 @@
 // https://api.mistral.ai/v1
 // https://openrouter.ai/api/v1
 // http://localhost:5001/v1
-const baseURL = "https://generativelanguage.googleapis.com/v1beta/";
+const baseURL = "https://generativelanguage.googleapis.com/v1beta/openai";
 
 // If using a different online AI service, change this to your API key stored in ".env"
 // Examples: process.env.GEMINI_API_KEY, process.env.MISTRAL_API_KEY
@@ -12,7 +12,7 @@ const apiKey = process.env.GEMINI_API_KEY;
 // If using koboldcpp, change both of these to "koboldcpp"
 // For vision to work locally, download the correct mmproj from https://huggingface.co/koboldcpp/mmproj/tree/main
 // Example: If you are using a model based on Llama3, download the one that says Llama3, then you would insert it into Loaded Files > Vision mmproj
-const model = "gemma-3-27b-it";
-const visionModel = "gemma-3-27b-it";
+const model = "gemini-2.5-flash";
+const visionModel = "gemini-2.5-flash";
 
 module.exports = { baseURL, apiKey, model, visionModel };
