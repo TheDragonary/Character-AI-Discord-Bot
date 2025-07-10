@@ -104,6 +104,7 @@ module.exports = {
                 console.error(error);
                 await interaction.editReply('There was an error while adding the character.');
             }
+
         } else if (subcommand == 'delete') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
@@ -125,6 +126,7 @@ module.exports = {
                 console.error(err);
                 await interaction.editReply('There was an error while deleting the character.');
             }
+            
         } else if (subcommand == 'list') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
