@@ -94,9 +94,9 @@ module.exports = {
 
                 await db.query(
                     `INSERT INTO characters 
-                    (user_id, character_name, description, personality, scenario, first_mes, mes_example)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                    [userId, charName, description, personality, scenario, first_mes, mes_example]
+                    (user_id, character_name, description, personality, scenario, first_mes, mes_example, avatar_url)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [userId, charName, description, personality, scenario, first_mes, mes_example, image.url]
                 );
 
                 await interaction.editReply(`✅ Added **${charName}** to your character list.`);
@@ -126,7 +126,7 @@ module.exports = {
                 console.error(err);
                 await interaction.editReply('There was an error while deleting the character.');
             }
-            
+
         } else if (subcommand == 'list') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 

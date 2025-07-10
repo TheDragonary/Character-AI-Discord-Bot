@@ -1,5 +1,6 @@
 const { Events, MessageFlags } = require('discord.js');
-const { handleCharacterChat, splitMessage } = require('../chatHandler.js');
+const { handleCharacterChat } = require('../chatHandler.js');
+const { sendCharacterMessage } = require('../webhookHandler.js');
 
 module.exports = {
     name: Events.MessageCreate,
@@ -23,14 +24,11 @@ module.exports = {
                     prompt
                 });
 
-                if (reply) {
-                    const chunks = splitMessage(reply);
-                    await message.reply(chunks[0]);
-
-                    for (let i = 1; i < chunks.length; i++) {
-                        await message.reply({ content: chunks[i] });
-                    }
-                }
+                await sendCharacterMessage({
+                    userId: message.author.id,
+                    message: reply,
+                    interactionChannel: message.channel
+                });
             } catch (error) {
                 console.error(error);
                 await message.reply(error.message || 'An error occurred while sending the message.');

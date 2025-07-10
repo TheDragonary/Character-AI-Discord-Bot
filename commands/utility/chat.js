@@ -1,6 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { handleCharacterChat, splitMessage } = require('../../chatHandler.js');
+const { handleCharacterChat } = require('../../chatHandler.js');
 const db = require('../../db');
+const { sendCharacterMessage } = require('../../webhookHandler.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -32,11 +33,17 @@ module.exports = {
                 characterNameOverride: charName
             });
 
-            const chunks = splitMessage(reply);
-            await interaction.editReply(chunks[0]);
-            
-            for (let i = 1; i < chunks.length; i++) {
-                await interaction.followUp({ content: chunks[i] });
+            if (!interaction.channel) {
+                await interaction.editReply(reply);
+            } else {
+                await sendCharacterMessage({
+                    userId,
+                    characterNameOverride: charName,
+                    message: reply,
+                    interactionChannel: interaction.channel
+                });
+
+                await interaction.deleteReply();
             }
         } catch (error) {
             console.error(error);
