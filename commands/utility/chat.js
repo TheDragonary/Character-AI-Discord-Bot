@@ -65,8 +65,8 @@ module.exports = {
                     });
 
                     await interaction.deleteReply();
-                    return;
                 }
+                return;
             }
 
             const reply = await handleCharacterChat({
