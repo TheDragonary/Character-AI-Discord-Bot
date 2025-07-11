@@ -169,7 +169,35 @@ async function getStoredWebhookIds() {
     return rows.map(row => row.webhook_id);
 }
 
+async function getFirstMessage(userId, username, charName) {
+    if (!charName) {
+        const { rows } = await db.query(
+            'SELECT default_character FROM user_settings WHERE user_id = $1',
+            [userId]
+        );
+        if (!rows.length || !rows[0].default_character) {
+            throw new Error('No character specified and no default character set.');
+        }
+        charName = rows[0].default_character;
+    }
+
+    const { rows } = await db.query(
+        'SELECT first_mes FROM characters WHERE user_id = $1 AND character_name = $2',
+        [userId, charName]
+    );
+
+    if (!rows.length) {
+        throw new Error(`Character "${charName}" not found for user ${userId}.`);
+    }
+
+    const safeReplace = (str) =>
+        str.replace(/\{\{user\}\}/gi, username).replace(/\{\{char\}\}/gi, charName);
+
+    return first_mes = safeReplace(rows[0]?.first_mes);
+}
+
 module.exports = {
     sendCharacterMessage,
-    getStoredWebhookIds
+    getStoredWebhookIds,
+    getFirstMessage
 };

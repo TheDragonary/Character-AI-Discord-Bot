@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const db = require('../../db');
+const { sendFirstMessage } = require('../../webhookHandler.js');
 
 async function extractImageData(imageUrl) {
     const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
@@ -99,7 +100,18 @@ module.exports = {
                     [userId, charName, description, personality, scenario, first_mes, mes_example, image.url]
                 );
 
-                await interaction.editReply(`✅ Added **${charName}** to your character list.`);
+                const replyMsg = await interaction.editReply(`✅ Added **${charName}** to your character list. Click 👋 to send the first message.`);
+
+                await replyMsg.react('👋');
+
+                const filter = (reaction, user) =>
+                    reaction.emoji.name === '👋' && user.id === interaction.user.id;
+
+                const collector = replyMsg.createReactionCollector({ filter, max: 1, time: 30000 });
+
+                collector.on('collect', async () => {
+                    await sendFirstMessage(userId, charName, interaction.channel);
+                });
             } catch (error) {
                 console.error(error);
                 await interaction.editReply('There was an error while adding the character.');

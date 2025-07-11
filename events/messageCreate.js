@@ -1,6 +1,7 @@
 const { Events, MessageFlags } = require('discord.js');
 const { handleCharacterChat } = require('../chatHandler.js');
-const { sendCharacterMessage, getStoredWebhookIds } = require('../webhookHandler.js');
+const { sendCharacterMessage, getStoredWebhookIds, getFirstMessage } = require('../webhookHandler.js');
+const db = require('../db');
 
 module.exports = {
     name: Events.MessageCreate,
@@ -42,6 +43,40 @@ module.exports = {
             const prompt = cleanPrompt(message.content);
 
             try {
+                const { rows } = await db.query(
+                    'SELECT default_character FROM user_settings WHERE user_id = $1',
+                    [message.author.id]
+                );
+
+                if (!rows.length || !rows[0].default_character) {
+                    return await interaction.editReply('No character specified and no default character set.');
+                }
+
+                const charName = rows[0].default_character;
+
+                const { rows: historyRows } = await db.query(
+                    'SELECT 1 FROM character_history WHERE user_id = $1 AND character_name = $2 LIMIT 1',
+                    [message.author.id, charName]
+                );
+    
+                if (historyRows.length === 0) {
+                    const reply = await getFirstMessage(message.author.id, message.author.displayName || message.author.username, charName);
+                    
+                    await db.query(
+                        `INSERT INTO character_history (user_id, character_name, role, content)
+                            VALUES ($1, $2, 'character', $3)`,
+                        [message.author.id, charName, reply]
+                    );
+
+                    await sendCharacterMessage({
+                        userId: message.author.id,
+                        characterNameOverride: charName,
+                        message: reply,
+                        interactionChannel: message.channel
+                    });
+                    return;
+                }
+
                 const response = await handleCharacterChat({
                     userId: message.author.id,
                     username: message.author.displayName || message.author.username,
