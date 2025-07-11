@@ -55,12 +55,17 @@ async function getCharacterWithWebhook(userId, characterNameOverride, interactio
     }
 
     const { rows: characterRows } = await db.query(
-        'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
+        `SELECT * FROM characters 
+        WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2
+        ORDER BY user_id NULLS LAST
+        LIMIT 1`,
         [userId, charName]
     );
+
     if (!characterRows.length) {
         throw new Error(`Character "${charName}" not found.`);
     }
+
     characterData = characterRows[0];
 
     // Get or create webhook for the guild
@@ -182,7 +187,10 @@ async function getFirstMessage(userId, username, charName) {
     }
 
     const { rows } = await db.query(
-        'SELECT first_mes FROM characters WHERE user_id = $1 AND character_name = $2',
+        `SELECT first_mes FROM characters 
+        WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2
+        ORDER BY user_id NULLS LAST
+        LIMIT 1`,
         [userId, charName]
     );
 

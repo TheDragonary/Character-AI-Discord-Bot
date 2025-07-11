@@ -12,8 +12,11 @@ async function handleCharacterChat({ userId, username, prompt, characterNameOver
 
     if (charName) {
         const { rows } = await db.query(
-            'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
-            [userId, charName]
+            `SELECT * FROM characters 
+            WHERE character_name = $1 AND (user_id = $2 OR user_id IS NULL)
+            ORDER BY user_id NULLS LAST
+            LIMIT 1`,
+            [charName, userId]
         );
 
         if (rows.length === 0) {
@@ -39,9 +42,13 @@ async function handleCharacterChat({ userId, username, prompt, characterNameOver
         charName = settings[0].default_character;
 
         const { rows } = await db.query(
-            'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
-            [userId, charName]
+            `SELECT * FROM characters 
+            WHERE character_name = $1 AND (user_id = $2 OR user_id IS NULL)
+            ORDER BY user_id NULLS LAST
+            LIMIT 1`,
+            [charName, userId]
         );
+
 
         if (rows.length === 0) {
             throw new Error(`Default character "${charName}" not found.`);

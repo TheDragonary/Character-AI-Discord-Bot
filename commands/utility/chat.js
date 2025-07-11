@@ -99,7 +99,8 @@ module.exports = {
 
         try {
             const { rows } = await db.query(
-                'SELECT character_name FROM characters WHERE user_id = $1',
+                `SELECT character_name FROM characters 
+                WHERE user_id = $1 OR user_id IS NULL`,
                 [userId]
             );
 

@@ -29,8 +29,6 @@ module.exports = {
             }
 
             if (!mention && !reply) return;
-                
-            await message.channel.sendTyping();
 
             function cleanPrompt(content) {
                 return content
@@ -76,6 +74,8 @@ module.exports = {
                     });
                     return;
                 }
+                
+                await message.channel.sendTyping();
 
                 const response = await handleCharacterChat({
                     userId: message.author.id,
