@@ -24,7 +24,8 @@ module.exports = {
                 .addStringOption(option =>
                     option.setName('name')
                         .setDescription('Name of the global character to delete')
-                        .setRequired(true)))
+                        .setRequired(true)
+                        .setAutocomplete(true)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('list')
