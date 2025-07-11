@@ -31,9 +31,11 @@ module.exports = {
 
             try {
                 const { rows: charRows } = await db.query(
-                    'SELECT character_name FROM characters WHERE user_id = $1 AND character_name = $2',
+                    `SELECT character_name FROM characters 
+                    WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2`,
                     [userId, charName]
                 );
+
 
                 if (charRows.length === 0) {
                     await interaction.editReply(`❌ Character **${charName}** not found in your list.`);
