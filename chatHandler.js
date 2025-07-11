@@ -105,6 +105,8 @@ async function handleCharacterChat({ userId, username, prompt, characterNameOver
 
     const reply = response.text;
 
+    console.log(reply);
+
     await db.query(
         `INSERT INTO character_history (user_id, character_name, role, content)
          VALUES ($1, $2, 'user', $3), ($1, $2, 'character', $4)`,

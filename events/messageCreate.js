@@ -20,7 +20,7 @@ module.exports = {
             try {
                 const reply = await handleCharacterChat({
                     userId: message.author.id,
-                    username: message.author.username,
+                    username: message.author.displayName || message.author.username,
                     prompt
                 });
 

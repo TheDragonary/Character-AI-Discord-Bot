@@ -23,7 +23,7 @@ module.exports = {
         const prompt = interaction.options.getString('prompt');
         const charName = interaction.options.getString('character');
         const userId = interaction.user.id;
-        const username = interaction.user.username;
+        const username = interaction.user.displayName || interaction.user.username;
 
         try {
             const reply = await handleCharacterChat({
@@ -43,7 +43,7 @@ module.exports = {
                     interactionChannel: interaction.channel
                 });
 
-                await interaction.deleteReply();
+                await interaction.editReply(`${interaction.user.displayName}: ${prompt}`);
             }
         } catch (error) {
             console.error(error);
