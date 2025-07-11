@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
 const db = require('../../db');
+const { autocompleteHistory } = require('../../autocomplete');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -119,29 +120,7 @@ module.exports = {
     },
 
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused();
         const userId = interaction.user.id;
-
-        try {
-            const { rows } = await db.query(
-                `SELECT DISTINCT character_name FROM character_history 
-                WHERE user_id = $1
-                UNION
-                SELECT DISTINCT character_name FROM characters WHERE user_id IS NULL`,
-                [userId]
-            );
-
-            const choices = rows.map(row => row.character_name);
-            const filtered = choices
-                .filter(name => name.toLowerCase().startsWith(focused.toLowerCase()))
-                .slice(0, 25);
-
-            await interaction.respond(
-                filtered.map(choice => ({ name: choice, value: choice }))
-            );
-        } catch (err) {
-            console.error('Autocomplete failed:', err);
-            await interaction.respond([]);
-        }
+        await autocompleteHistory(interaction, userId);
     }
 };

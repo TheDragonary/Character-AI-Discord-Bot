@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const db = require('../../db');
 const { extractImageData } = require('../../cardReader');
-const { autocompleteCharacters } = require('../../autocomplete');
+const { autocompleteGlobalCharacters } = require('../../autocomplete');
 
 const BOT_OWNER_ID = process.env.BOT_OWNER_ID;
 
@@ -119,7 +119,6 @@ module.exports = {
     },
 
     async autocomplete(interaction) {
-        const userId = interaction.user.id;
-        await autocompleteCharacters(interaction, userId);
+        await autocompleteGlobalCharacters(interaction);
     }
 };
