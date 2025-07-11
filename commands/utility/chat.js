@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { handleCharacterChat } = require('../../chatHandler.js');
 const db = require('../../db');
 const { sendCharacterMessage, getFirstMessage } = require('../../webhookHandler.js');
+const { autocompleteCharacters } = require('../../autocomplete');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -94,27 +95,7 @@ module.exports = {
     },
 
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused();
         const userId = interaction.user.id;
-
-        try {
-            const { rows } = await db.query(
-                `SELECT character_name FROM characters 
-                WHERE user_id = $1 OR user_id IS NULL`,
-                [userId]
-            );
-
-            const choices = rows.map(row => row.character_name);
-            const filtered = choices
-                .filter(name => name.toLowerCase().startsWith(focused.toLowerCase()))
-                .slice(0, 25);
-
-            await interaction.respond(
-                filtered.map(choice => ({ name: choice, value: choice }))
-            );
-        } catch (err) {
-            console.error('Autocomplete failed:', err);
-            await interaction.respond([]);
-        }
+        await autocompleteCharacters(interaction, userId);
     }
 };

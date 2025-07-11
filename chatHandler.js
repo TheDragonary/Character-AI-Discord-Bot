@@ -27,8 +27,9 @@ async function handleCharacterChat({ userId, username, prompt, characterNameOver
         await db.query(`
             INSERT INTO user_settings (user_id, default_character)
             VALUES ($1, $2)
-            ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character
-        `, [userId, charName]);
+            ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character`,
+            [userId, charName]
+        );
     } else {
         const { rows: settings } = await db.query(
             'SELECT default_character FROM user_settings WHERE user_id = $1',
