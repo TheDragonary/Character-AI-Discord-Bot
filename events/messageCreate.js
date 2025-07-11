@@ -1,6 +1,6 @@
 const { Events, MessageFlags } = require('discord.js');
 const { handleCharacterChat } = require('../chatHandler.js');
-const { sendCharacterMessage } = require('../webhookHandler.js');
+const { sendCharacterMessage, getStoredWebhookIds } = require('../webhookHandler.js');
 
 module.exports = {
     name: Events.MessageCreate,
@@ -9,7 +9,23 @@ module.exports = {
 
         try {
             const mention = message.mentions.has(message.client.user);
-            const reply = message.reference && (await message.fetchReference())?.author?.id === message.client.user.id;
+
+            let reply = false;
+            if (message.reference) {
+                try {
+                    const repliedMessage = await message.fetchReference();
+                    if (repliedMessage.author.id === message.client.user.id) {
+                        reply = true;
+                    } else {
+                        const storedWebhookIds = await getStoredWebhookIds();
+                        if (storedWebhookIds.includes(repliedMessage.webhookId)) {
+                            reply = true;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to fetch replied message:', error);
+                }
+            }
 
             if (!mention && !reply) return;
                 
@@ -18,7 +34,7 @@ module.exports = {
             const prompt = message.content.replace(/<@!?(\d+)>/, '').trim();
 
             try {
-                const reply = await handleCharacterChat({
+                const response = await handleCharacterChat({
                     userId: message.author.id,
                     username: message.author.displayName || message.author.username,
                     prompt
@@ -26,7 +42,7 @@ module.exports = {
 
                 await sendCharacterMessage({
                     userId: message.author.id,
-                    message: reply,
+                    message: response,
                     interactionChannel: message.channel
                 });
             } catch (error) {

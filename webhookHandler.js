@@ -166,6 +166,12 @@ async function sendCharacterMessage({ userId, characterNameOverride, message, in
     }
 }
 
+async function getStoredWebhookIds() {
+    const { rows } = await db.query('SELECT webhook_id FROM characters WHERE webhook_id IS NOT NULL');
+    return rows.map(row => row.webhook_id);
+}
+
 module.exports = {
-    sendCharacterMessage
+    sendCharacterMessage,
+    getStoredWebhookIds
 };
