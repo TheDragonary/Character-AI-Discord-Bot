@@ -2,127 +2,121 @@ const { WebhookClient } = require('discord.js');
 const db = require('./db');
 const { splitMessage } = require('./chatHandler');
 
+async function getGuildWebhook(guildId, interactionChannel) {
+    // Try to get webhook info for the guild
+    const { rows } = await db.query(
+        'SELECT webhook_id, webhook_token FROM guild_webhooks WHERE guild_id = $1',
+        [guildId]
+    );
+
+    if (rows.length > 0) {
+        const { webhook_id, webhook_token } = rows[0];
+        return new WebhookClient({ id: webhook_id, token: webhook_token });
+    }
+
+    // No webhook stored, create one
+    if (!interactionChannel) throw new Error('No channel provided for webhook creation.');
+
+    const webhook = await interactionChannel.createWebhook({
+        name: 'Character Bot Webhook',
+        avatar: null
+    });
+
+    await db.query(
+        `INSERT INTO guild_webhooks (guild_id, webhook_id, webhook_token)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (guild_id) DO UPDATE SET webhook_id = EXCLUDED.webhook_id, webhook_token = EXCLUDED.webhook_token`,
+        [guildId, webhook.id, webhook.token]
+    );
+
+    return new WebhookClient({ id: webhook.id, token: webhook.token });
+}
+
 async function getCharacterWithWebhook(userId, characterNameOverride, interactionChannel) {
+    if (!interactionChannel?.guild) {
+        throw new Error('Only guild channels are supported for webhooks.');
+    }
+
+    const guildId = interactionChannel.guild.id;
+
+    // Get character data
     let charName = characterNameOverride;
     let characterData;
 
-    // Retrieve character
-    if (charName) {
+    if (!charName) {
         const { rows } = await db.query(
-            'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
-            [userId, charName]
-        );
-        if (rows.length === 0) {
-            throw new Error(`Character "${charName}" not found.`);
-        }
-        characterData = rows[0];
-
-        await db.query(`
-            INSERT INTO user_settings (user_id, default_character)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character
-        `, [userId, charName]);
-    } else {
-        const { rows: settings } = await db.query(
             'SELECT default_character FROM user_settings WHERE user_id = $1',
             [userId]
         );
-        if (settings.length === 0 || !settings[0].default_character) {
+        if (!rows.length || !rows[0].default_character) {
             throw new Error('No character specified and no default character set.');
         }
-        charName = settings[0].default_character;
-
-        const { rows } = await db.query(
-            'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
-            [userId, charName]
-        );
-        if (rows.length === 0) {
-            throw new Error(`Default character "${charName}" not found.`);
-        }
-        characterData = rows[0];
+        charName = rows[0].default_character;
     }
 
-    let webhookId = characterData.webhook_id;
-    let webhookToken = characterData.webhook_token;
+    const { rows: characterRows } = await db.query(
+        'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
+        [userId, charName]
+    );
+    if (!characterRows.length) {
+        throw new Error(`Character "${charName}" not found.`);
+    }
+    characterData = characterRows[0];
+
+    // Get or create webhook for the guild
+    let webhookId, webhookToken;
     let webhookClient;
 
-    try {
-        if (!webhookId || !webhookToken) {
-            if (!interactionChannel) {
-                throw new Error('No channel provided for webhook creation.');
+    const { rows: webhookRows } = await db.query(
+        'SELECT webhook_id, webhook_token FROM guild_webhooks WHERE guild_id = $1',
+        [guildId]
+    );
+
+    if (webhookRows.length) {
+        webhookId = webhookRows[0].webhook_id;
+        webhookToken = webhookRows[0].webhook_token;
+        webhookClient = new WebhookClient({ id: webhookId, token: webhookToken });
+
+        try {
+            const existing = await interactionChannel.client.fetchWebhook(webhookId);
+            if (!existing || existing.channelId !== interactionChannel.id) {
+                throw new Error('Invalid or misplaced webhook, recreating...');
             }
-
-            const webhook = await interactionChannel.createWebhook({
-                name: characterData.character_name,
-                avatar: characterData.avatar_url || undefined
-            });
-
-            webhookId = webhook.id;
-            webhookToken = webhook.token;
-
-            await db.query(
-                `UPDATE characters SET webhook_id = $1, webhook_token = $2 WHERE id = $3`,
-                [webhookId, webhookToken, characterData.id]
-            );
-
-            webhookClient = new WebhookClient({ id: webhookId, token: webhookToken });
-        } else {
-            // Create client and verify
-            webhookClient = new WebhookClient({ id: webhookId, token: webhookToken });
-
-            try {
-                const webhooks = await interactionChannel.fetchWebhooks();
-                const existingWebhook = webhooks.get(webhookId);
-
-                if (!existingWebhook || existingWebhook.channelId !== interactionChannel.id) {
-                    console.warn(`Webhook invalid or in wrong channel. Recreating...`);
-
-                    if (existingWebhook) {
-                        await existingWebhook.delete('Rebinding to correct channel');
-                    }
-
-                    await db.query(
-                        `UPDATE characters SET webhook_id = NULL, webhook_token = NULL WHERE id = $1`,
-                        [characterData.id]
-                    );
-
-                    return await getCharacterWithWebhook(userId, characterNameOverride, interactionChannel);
-                }
-            } catch (err) {
-                if (err.code === 10015) { // Unknown Webhook
-                    await db.query(
-                        `UPDATE characters SET webhook_id = NULL, webhook_token = NULL WHERE id = $1`,
-                        [characterData.id]
-                    );
-                    return await getCharacterWithWebhook(userId, characterNameOverride, interactionChannel);
-                } else {
-                    throw err;
-                }
-            }
+        } catch {
+            webhookId = null;
+            webhookToken = null;
         }
-    } catch (error) {
-        console.error('Error creating or verifying webhook:', error);
-        throw error;
     }
 
+    // If invalid or missing, create webhook
+    if (!webhookId || !webhookToken) {
+        const webhook = await interactionChannel.createWebhook({
+            name: 'Character Bot Webhook',
+            avatar: null
+        });
+
+        webhookId = webhook.id;
+        webhookToken = webhook.token;
+        webhookClient = new WebhookClient({ id: webhookId, token: webhookToken });
+
+        await db.query(`
+            INSERT INTO guild_webhooks (guild_id, webhook_id, webhook_token)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (guild_id) DO UPDATE
+            SET webhook_id = EXCLUDED.webhook_id, webhook_token = EXCLUDED.webhook_token
+        `, [guildId, webhookId, webhookToken]);
+    }
+
+    // Delete any other bot-owned webhooks in the server
     try {
-        const guild = interactionChannel.guild;
-        if (guild) {
-            const allWebhooks = await guild.fetchWebhooks();
-            for (const [id, wh] of allWebhooks) {
-                // If same character name but webhook ID differs or channel differs, delete duplicate
-                if (
-                    wh.name === characterData.character_name &&
-                    wh.id !== webhookId &&
-                    wh.channelId !== interactionChannel.id
-                ) {
-                    console.log(`Deleting duplicate webhook "${wh.name}" in #${wh.channel?.name || wh.channelId}`);
-                    await wh.delete('Duplicate webhook cleanup');
-                }
+        const allWebhooks = await interactionChannel.guild.fetchWebhooks();
+        for (const wh of allWebhooks.values()) {
+            if (wh.id !== webhookId && wh.owner?.id === interactionChannel.client.user.id) {
+                await wh.delete('Enforcing single webhook per guild');
             }
         }
     } catch (err) {
-        console.warn('Failed to clean up duplicate webhooks:', err);
+        console.warn('Webhook cleanup failed:', err);
     }
 
     return {
@@ -133,29 +127,32 @@ async function getCharacterWithWebhook(userId, characterNameOverride, interactio
 }
 
 async function sendCharacterMessage({ userId, characterNameOverride, message, interactionChannel }) {
-    let character = await getCharacterWithWebhook(userId, characterNameOverride, interactionChannel);
+    const character = await getCharacterWithWebhook(userId, characterNameOverride, interactionChannel);
     const chunks = splitMessage(message);
 
     try {
-        for (let i = 0; i < chunks.length; i++) {
+        for (let chunk of chunks) {
             await character.webhookClient.send({
-                content: chunks[i],
+                content: chunk,
                 username: character.name,
                 avatarURL: character.avatarURL
             });
         }
     } catch (error) {
         if (error.code === 10015) { // Unknown Webhook
-            console.warn('Webhook missing. Recreating...');
+            console.warn('Webhook missing or invalid. Recreating...');
+            // Reset stored webhook for the guild
+            const guildId = interactionChannel.guild.id;
             await db.query(
-                'UPDATE characters SET webhook_id = NULL, webhook_token = NULL WHERE character_name = $1 AND user_id = $2',
-                [character.name, userId]
+                'DELETE FROM guild_webhooks WHERE guild_id = $1',
+                [guildId]
             );
 
-            character = await getCharacterWithWebhook(userId, characterNameOverride, interactionChannel);
-            for (let i = 0; i < chunks.length; i++) {
-                await character.webhookClient.send({
-                    content: chunks[i],
+            const newWebhookClient = await getGuildWebhook(guildId, interactionChannel);
+
+            for (let chunk of chunks) {
+                await newWebhookClient.send({
+                    content: chunk,
                     username: character.name,
                     avatarURL: character.avatarURL
                 });
@@ -167,7 +164,8 @@ async function sendCharacterMessage({ userId, characterNameOverride, message, in
 }
 
 async function getStoredWebhookIds() {
-    const { rows } = await db.query('SELECT webhook_id FROM characters WHERE webhook_id IS NOT NULL');
+    // Returns all webhook IDs stored across all guilds
+    const { rows } = await db.query('SELECT webhook_id FROM guild_webhooks WHERE webhook_id IS NOT NULL');
     return rows.map(row => row.webhook_id);
 }
 
