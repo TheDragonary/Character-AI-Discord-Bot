@@ -1,6 +1,9 @@
-const { model } = require('./aiSettings');
-const { GoogleGenAI } = require('@google/genai');
-const ai = new GoogleGenAI({});
+const { baseURL, apiKey, model } = require('./aiSettings');
+const OpenAI = require('openai');
+const openai = new OpenAI({ 
+	baseURL: baseURL,
+	apiKey: apiKey
+});
 const db = require('./db');
 
 async function handleCharacterChat({ userId, username, prompt, characterNameOverride = null }) {
@@ -65,45 +68,62 @@ async function handleCharacterChat({ userId, username, prompt, characterNameOver
     );
 
     const chatHistory = historyRows.reverse().map(row => ({
-        role: row.role === 'user' ? 'user' : 'model',
-        parts: [{ text: row.content }]
+        role: row.role === 'user' ? 'user' : 'assistant',
+        content: row.content
     }));
+
+    // const payload = {
+    //     model,
+    //     contents: [
+    //         { role: 'model', parts: [{ text: first_mes }] },
+    //         ...chatHistory,
+    //         { role: 'user', parts: [{ text: prompt }] }
+    //     ],
+    //     safetySettings: [
+    //         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
+    //         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
+    //         { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
+    //         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
+    //         { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' }
+    //     ],
+    //     generationConfig: {
+    //         temperature: 1.0
+    //     },
+    //     systemInstruction: {
+    //         parts: [
+    //             { text: systemPrompt },
+    //             { text: description },
+    //             { text: personality },
+    //             { text: scenario },
+    //             { text: '[Example Chat]' },
+    //             { text: mes_example },
+    //             { text: '[Start a new Chat]' }
+    //         ]
+    //     }
+    // };
+
+    // console.log('Google AI Studio request:', JSON.stringify(payload, null, 2));
+
+    // const response = await ai.models.generateContent(payload);
+
+    // const reply = response.text;
 
     const payload = {
         model,
-        contents: [
-            { role: 'model', parts: [{ text: first_mes }] },
+        messages: [
+            { role: "system", content: `${systemPrompt}\n\n${description}\n\n${personality}\n\n${scenario}\n\n[Example Chat]\n\n${mes_example}\n\n[Start a new Chat]` },
+            { role: "assistant", content: first_mes },
             ...chatHistory,
-            { role: 'user', parts: [{ text: prompt }] }
+            { role: "user", content: prompt }
         ],
-        safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
-            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' }
-        ],
-        generationConfig: {
-            temperature: 1.0
-        },
-        systemInstruction: {
-            parts: [
-                { text: systemPrompt },
-                { text: description },
-                { text: personality },
-                { text: scenario },
-                { text: '[Example Chat]' },
-                { text: mes_example },
-                { text: '[Start a new Chat]' }
-            ]
-        }
+        temperature: 0.7
     };
 
-    console.log('Google AI Studio request:', JSON.stringify(payload, null, 2));
+    console.log('OpenAI API request:', JSON.stringify(payload, null, 2));
 
-    const response = await ai.models.generateContent(payload);
+    const response = await openai.chat.completions.create(payload);
 
-    const reply = response.text;
+    const reply = response.choices[0].message.content;
 
     console.log(reply);
 

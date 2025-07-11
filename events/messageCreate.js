@@ -31,7 +31,15 @@ module.exports = {
                 
             await message.channel.sendTyping();
 
-            const prompt = message.content.replace(/<@!?(\d+)>/, '').trim();
+            function cleanPrompt(content) {
+                return content
+                    .replace(/<@!?(\d+)>/g, '')     // user mentions
+                    .replace(/<@&(\d+)>/g, '')      // role mentions
+                    .replace(/<#(\d+)>/g, '')       // channel mentions
+                    .trim();
+            }
+
+            const prompt = cleanPrompt(message.content);
 
             try {
                 const response = await handleCharacterChat({
