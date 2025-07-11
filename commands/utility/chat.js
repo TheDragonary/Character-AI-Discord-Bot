@@ -1,7 +1,8 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { handleCharacterChat } = require('../../chatHandler.js');
 const db = require('../../db');
-const { sendCharacterMessage } = require('../../webhookHandler.js');
+const { sendCharacterMessage, getFirstMessage } = require('../../webhookHandler.js');
+const { autocompleteCharacters } = require('../../autocomplete');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -21,11 +22,53 @@ module.exports = {
         await interaction.deferReply();
 
         const prompt = interaction.options.getString('prompt');
-        const charName = interaction.options.getString('character');
+        let charName = interaction.options.getString('character');
         const userId = interaction.user.id;
         const username = interaction.user.displayName || interaction.user.username;
 
+        if (!charName) {
+            const { rows } = await db.query(
+                'SELECT default_character FROM user_settings WHERE user_id = $1',
+                [userId]
+            );
+
+            if (!rows.length || !rows[0].default_character) {
+                return await interaction.editReply('No character specified and no default character set.');
+            }
+
+            charName = rows[0].default_character;
+        }
+
         try {
+            const { rows: historyRows } = await db.query(
+                'SELECT 1 FROM character_history WHERE user_id = $1 AND character_name = $2 LIMIT 1',
+                [userId, charName]
+            );
+
+            if (historyRows.length === 0) {
+                const reply = await getFirstMessage(userId, username, charName);
+                
+                await db.query(
+                    `INSERT INTO character_history (user_id, character_name, role, content)
+                        VALUES ($1, $2, 'character', $3)`,
+                    [userId, charName, reply]
+                );
+
+                if (!interaction.channel) {
+                    await interaction.editReply(reply);
+                } else {
+                    await sendCharacterMessage({
+                        userId,
+                        characterNameOverride: charName,
+                        message: reply,
+                        interactionChannel: interaction.channel
+                    });
+
+                    await interaction.deleteReply();
+                }
+                return;
+            }
+
             const reply = await handleCharacterChat({
                 userId,
                 username,
@@ -52,26 +95,7 @@ module.exports = {
     },
 
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused();
         const userId = interaction.user.id;
-
-        try {
-            const { rows } = await db.query(
-                'SELECT character_name FROM characters WHERE user_id = $1',
-                [userId]
-            );
-
-            const choices = rows.map(row => row.character_name);
-            const filtered = choices
-                .filter(name => name.toLowerCase().startsWith(focused.toLowerCase()))
-                .slice(0, 25);
-
-            await interaction.respond(
-                filtered.map(choice => ({ name: choice, value: choice }))
-            );
-        } catch (err) {
-            console.error('Autocomplete failed:', err);
-            await interaction.respond([]);
-        }
+        await autocompleteCharacters(interaction, userId);
     }
 };

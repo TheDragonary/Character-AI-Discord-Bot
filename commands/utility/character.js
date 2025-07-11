@@ -1,37 +1,8 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const db = require('../../db');
-
-async function extractImageData(imageUrl) {
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-    const extractChunks = require('png-chunks-extract');
-    const PNGtext = require('png-chunk-text');
-
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const chunks = extractChunks(buffer);
-
-    let character = null;
-    for (const chunk of chunks) {
-        if (chunk.name === 'tEXt') {
-            const textData = PNGtext.decode(chunk.data);
-            if (textData.keyword && textData.keyword.toLowerCase().includes('chara')) {
-                character = textData.text;
-                break;
-            }
-        }
-    }
-
-    if (!character) {
-        throw new Error('Image contains no character card metadata.');
-    }
-
-    const decodedString = Buffer.from(character, 'base64').toString('utf-8');
-    const metadata = JSON.parse(decodedString);
-    return metadata;
-};
+const { sendCharacterMessage, getFirstMessage } = require('../../webhookHandler.js');
+const { extractImageData } = require('../../cardReader');
+const { autocompleteCharacters } = require('../../autocomplete');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -43,7 +14,7 @@ module.exports = {
                 .setDescription('Add a character to your list')
                 .addAttachmentOption(option =>
             option.setName('card')
-                .setDescription('Import a character card PNG file')
+                .setDescription('Character card (.png)')
                 .setRequired(true)))
         .addSubcommand(subcommand =>
             subcommand
@@ -51,7 +22,7 @@ module.exports = {
                 .setDescription('Delete a character from your list')
                 .addStringOption(option =>
             option.setName('name')
-                .setDescription('The name of the character to delete')
+                .setDescription('Name of the character to delete')
                 .setRequired(true)
                 .setAutocomplete(true)))
         .addSubcommand(subcommand =>
@@ -100,6 +71,39 @@ module.exports = {
                 );
 
                 await interaction.editReply(`✅ Added **${charName}** to your character list.`);
+
+                const followUpMsg = await interaction.followUp("Click 👋 to send the first message.");
+
+                await followUpMsg.react('👋');
+
+                const filter = (reaction, user) =>
+                    reaction.emoji.name === '👋' && user.id === interaction.user.id;
+
+                const collector = followUpMsg.createReactionCollector({ filter, max: 1, time: 30000 });
+
+                collector.on('collect', async () => {
+                    const reply = await getFirstMessage(userId, interaction.user.displayName || interaction.user.username, charName);
+
+                    await db.query(
+                        `INSERT INTO character_history (user_id, character_name, role, content)
+                            VALUES ($1, $2, 'character', $3)`,
+                        [userId, charName, reply]
+                    );
+
+                    await db.query(`
+                        INSERT INTO user_settings (user_id, default_character)
+                        VALUES ($1, $2)
+                        ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character`,
+                        [userId, charName]
+                    );
+
+                    await sendCharacterMessage({
+                        userId,
+                        characterNameOverride: charName,
+                        message: reply,
+                        interactionChannel: interaction.channel
+                    });
+                });
             } catch (error) {
                 console.error(error);
                 await interaction.editReply('There was an error while adding the character.');
@@ -133,19 +137,19 @@ module.exports = {
             const userId = interaction.user.id;
 
             try {
-                const { rows } = await db.query(
+                const { rows: userChars } = await db.query(
                     'SELECT character_name FROM characters WHERE user_id = $1',
                     [userId]
                 );
+                const { rows: globalChars } = await db.query(
+                    'SELECT character_name FROM characters WHERE user_id IS NULL'
+                );
 
-                if (rows.length === 0) {
-                    await interaction.editReply("You haven't added any characters yet.");
-                    return;
-                }
+                const userList = userChars.map((r,i) => `${i+1}. ${r.character_name}`).join('\n') || 'None';
+                const globalList = globalChars.map((r,i) => `${i+1}. ${r.character_name}`).join('\n') || 'None';
 
-                const list = rows.map((row, i) => `${i + 1}. ${row.character_name}`).join('\n');
+                await interaction.editReply(`👤 **Your Characters:**\n${userList}\n\n🌍 **Global Characters:**\n${globalList}`);
 
-                await interaction.editReply(`👤 **Your Characters:**\n${list}`);
             } catch (error) {
                 console.error(error);
                 await interaction.editReply('Something went wrong while fetching your character list.');
@@ -154,26 +158,7 @@ module.exports = {
     },
 
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused();
         const userId = interaction.user.id;
-
-        try {
-            const { rows } = await db.query(
-                'SELECT character_name FROM characters WHERE user_id = $1',
-                [userId]
-            );
-
-            const choices = rows.map(row => row.character_name);
-            const filtered = choices
-                .filter(name => name.toLowerCase().startsWith(focused.toLowerCase()))
-                .slice(0, 25);
-
-            await interaction.respond(
-                filtered.map(choice => ({ name: choice, value: choice }))
-            );
-        } catch (err) {
-            console.error('Autocomplete failed:', err);
-            await interaction.respond([]);
-        }
+        await autocompleteCharacters(interaction, userId);
     }
 };

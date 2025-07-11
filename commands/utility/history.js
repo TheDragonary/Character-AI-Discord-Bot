@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
 const db = require('../../db');
+const { autocompleteHistory } = require('../../autocomplete');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -67,7 +68,7 @@ module.exports = {
             const from = interaction.options.getInteger('from');
 
             const { rows } = await db.query(
-                'SELECT id FROM character_history WHERE user_id = $1 AND character_name = $2 ORDER BY id',
+                'SELECT id FROM character_history WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2 ORDER BY id',
                 [userId, character]
             );
 
@@ -88,7 +89,7 @@ module.exports = {
             const character = interaction.options.getString('character');
 
             await db.query(
-                'DELETE FROM character_history WHERE user_id = $1 AND character_name = $2',
+                'DELETE FROM character_history WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2',
                 [userId, character]
             );
 
@@ -98,7 +99,7 @@ module.exports = {
             const character = interaction.options.getString('character');
 
             const { rows } = await db.query(
-                'SELECT timestamp, role, content FROM character_history WHERE user_id = $1 AND character_name = $2 ORDER BY timestamp',
+                'SELECT timestamp, role, content FROM character_history WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2 ORDER BY timestamp',
                 [userId, character]
             );
 
@@ -119,26 +120,7 @@ module.exports = {
     },
 
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused();
         const userId = interaction.user.id;
-
-        try {
-            const { rows } = await db.query(
-                'SELECT DISTINCT character_name FROM character_history WHERE user_id = $1',
-                [userId]
-            );
-
-            const choices = rows.map(row => row.character_name);
-            const filtered = choices
-                .filter(name => name.toLowerCase().startsWith(focused.toLowerCase()))
-                .slice(0, 25);
-
-            await interaction.respond(
-                filtered.map(choice => ({ name: choice, value: choice }))
-            );
-        } catch (err) {
-            console.error('Autocomplete failed:', err);
-            await interaction.respond([]);
-        }
+        await autocompleteHistory(interaction, userId);
     }
 };

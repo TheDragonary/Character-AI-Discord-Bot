@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const db = require('../../db');
+const { autocompleteCharacters } = require('../../autocomplete');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,9 +31,11 @@ module.exports = {
 
             try {
                 const { rows: charRows } = await db.query(
-                    'SELECT character_name FROM characters WHERE user_id = $1 AND character_name = $2',
+                    `SELECT character_name FROM characters 
+                    WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2`,
                     [userId, charName]
                 );
+
 
                 if (charRows.length === 0) {
                     await interaction.editReply(`❌ Character **${charName}** not found in your list.`);
@@ -74,26 +77,7 @@ module.exports = {
     },
 
     async autocomplete(interaction) {
-        const focused = interaction.options.getFocused();
         const userId = interaction.user.id;
-
-        try {
-            const { rows } = await db.query(
-                'SELECT character_name FROM characters WHERE user_id = $1',
-                [userId]
-            );
-
-            const choices = rows.map(row => row.character_name);
-            const filtered = choices
-                .filter(name => name.toLowerCase().startsWith(focused.toLowerCase()))
-                .slice(0, 25);
-
-            await interaction.respond(
-                filtered.map(choice => ({ name: choice, value: choice }))
-            );
-        } catch (err) {
-            console.error('Autocomplete failed:', err);
-            await interaction.respond([]);
-        }
+        await autocompleteCharacters(interaction, userId);
     }
 };
