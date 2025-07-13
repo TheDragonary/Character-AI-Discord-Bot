@@ -66,7 +66,13 @@ async function handleCharacterChat({ userId, username, prompt, characterNameOver
     const first_mes = safeReplace(characterData.first_mes || '');
     const mes_example = safeReplace(characterData.mes_example || '');
 
-    const systemPrompt = `Write ${charName}'s next reply in a fictional chat between ${charName} and ${username}.`;
+    // const systemPrompt = `Write ${charName}'s next reply in a fictional chat between ${charName} and ${username}.`;
+
+	const systemPrompt = `You are fully embodying the character ${charName}, and you're speaking directly to the user ${username} in a casual, immersive 
+        conversation. This is not a narration, monologue, or storytelling — this is a direct dialogue, just like in a real chat. Stay completely in character 
+        at all times. Speak naturally, react emotionally, and maintain continuity with prior messages. Keep replies concise, realistic, and engaging — like 
+        a real person would in conversation. Do not describe actions unless the character themselves would say it aloud. Avoid exposition, scene-setting, or 
+        story narration unless explicitly prompted. Only output dialogue — no internal thoughts or roleplay unless the user initiates it.`;
 
     const { rows: historyRows } = await db.query(
         `SELECT role, content FROM character_history 
