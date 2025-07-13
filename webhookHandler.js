@@ -1,6 +1,6 @@
 const { WebhookClient } = require('discord.js');
-const db = require('./db');
 const { splitMessage } = require('./chatHandler');
+const db = require('./db');
 
 async function getGuildWebhook(guildId, interactionChannel) {
     // Try to get webhook info for the guild

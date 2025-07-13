@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const db = require('../../db');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteGlobalCharacters } = require('../../autocomplete');
+const db = require('../../db');
 
 const BOT_OWNER_ID = process.env.BOT_OWNER_ID;
 

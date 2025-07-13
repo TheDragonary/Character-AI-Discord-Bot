@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, AttachmentBuilder } = require('discord.js');
-const db = require('../../db');
 const { autocompleteHistory } = require('../../autocomplete');
+const db = require('../../db');
 
 module.exports = {
     data: new SlashCommandBuilder()

@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const db = require('../../db');
 const { autocompleteCharacters } = require('../../autocomplete');
+const db = require('../../db');
 
 module.exports = {
     data: new SlashCommandBuilder()

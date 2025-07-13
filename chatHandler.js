@@ -1,10 +1,10 @@
 const { baseURL, apiKey, model } = require('./aiSettings');
+const db = require('./db');
 const OpenAI = require('openai');
 const openai = new OpenAI({ 
 	baseURL: baseURL,
 	apiKey: apiKey
 });
-const db = require('./db');
 
 async function handleCharacterChat({ userId, username, prompt, characterNameOverride = null }) {
     let charName = characterNameOverride;
