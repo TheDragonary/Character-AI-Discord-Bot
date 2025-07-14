@@ -147,6 +147,13 @@ async function getFirstMessage(userId, username, charName) {
         throw new Error(`Character "${charName}" not found for user ${userId}.`);
     }
 
+    await db.query(`
+        INSERT INTO user_settings (user_id, default_character)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character`,
+        [userId, charName]
+    );
+
     const safeReplace = (str) =>
         str.replace(/\{\{user\}\}/gi, username).replace(/\{\{char\}\}/gi, charName);
 
