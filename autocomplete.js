@@ -25,13 +25,17 @@ async function autocompleteCharacters(interaction, userId) {
         FROM characters
         WHERE user_id = $1 OR user_id IS NULL
         ORDER BY character_name, user_id DESC`;
-
     await handleAutocomplete(interaction, query, [userId]);
 }
 
 async function autocompleteGlobalCharacters(interaction) {
     const query = `SELECT character_name FROM characters WHERE user_id IS NULL ORDER BY character_name`;
     await handleAutocomplete(interaction, query);
+}
+
+async function autocompleteUserCharacters(interaction, userId) {
+    const query = `SELECT character_name FROM characters WHERE user_id = $1 ORDER BY character_name`;
+    await handleAutocomplete(interaction, query, [userId]);
 }
 
 async function autocompleteHistory(interaction, userId) {
@@ -41,8 +45,7 @@ async function autocompleteHistory(interaction, userId) {
         UNION ALL
         SELECT DISTINCT character_name FROM characters WHERE user_id IS NULL
         ORDER BY character_name`
-
     await handleAutocomplete(interaction, query, [userId]);
 }
 
-module.exports = { autocompleteCharacters, autocompleteGlobalCharacters, autocompleteHistory };
+module.exports = { autocompleteCharacters, autocompleteGlobalCharacters, autocompleteUserCharacters, autocompleteHistory };

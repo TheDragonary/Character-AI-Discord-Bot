@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { sendCharacterMessage, getFirstMessage } = require('../../webhookHandler');
 const { extractImageData } = require('../../cardReader');
-const { autocompleteCharacters } = require('../../autocomplete');
+const { autocompleteCharacters, autocompleteUserCharacters } = require('../../autocomplete');
 const db = require('../../db');
 
 module.exports = {
@@ -51,6 +51,16 @@ module.exports = {
                 
                 if (!charName) {
                     return await interaction.editReply('❌ Character name is missing or invalid in the card metadata.');
+                }
+
+                const { rows: globalRows } = await db.query(
+                    'SELECT * FROM characters WHERE character_name = $1 AND user_id IS NULL',
+                    [charName]
+                );
+
+                if (globalRows.length > 0) {
+                    await interaction.editReply(`${charName} is already in the global character list.`);
+                    return;
                 }
 
                 const { rows } = await db.query(
@@ -116,6 +126,23 @@ module.exports = {
             const charName = interaction.options.getString('name');
     
             try {
+                const { rows } = await db.query(
+                    'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
+                    [userId, charName]
+                );
+
+                if (rows.length === 0) {
+                    const { rows: globalRows } = await db.query(
+                        'SELECT * FROM characters WHERE character_name = $1 AND user_id IS NULL',
+                        [charName]
+                    );
+
+                    if (globalRows.length > 0) {
+                        await interaction.editReply(`❌ You cannot delete a character from the global character list.`);
+                        return;
+                    }
+                }
+
                 const { rowCount } = await db.query(
                     'DELETE FROM characters WHERE user_id = $1 AND character_name = $2',
                     [userId, charName]
@@ -158,7 +185,12 @@ module.exports = {
     },
 
     async autocomplete(interaction) {
-        const userId = interaction.user.id;
-        await autocompleteCharacters(interaction, userId);
+        const subcommand = interaction.options.getSubcommand();
+
+        if (subcommand === 'delete') {
+            return await autocompleteUserCharacters(interaction, interaction.user.id);
+        } else if (subcommand === 'list') {
+            return await autocompleteCharacters(interaction, interaction.user.id);
+        }
     }
 };
