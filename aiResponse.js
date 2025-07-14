@@ -9,12 +9,12 @@ const googleAI = new GoogleGenAI({});
 
 function convertHistory(provider, rows) {
     if (provider === 'google') {
-        return rows.reverse().map(row => ({
+        return rows.map(row => ({
             role: row.role === 'user' ? 'user' : 'model',
             parts: [{ text: row.content }]
         }));
     } else {
-        return rows.reverse().map(row => ({
+        return rows.map(row => ({
             role: row.role === 'user' ? 'user' : 'assistant',
             content: row.content
         }));

@@ -1,6 +1,6 @@
 // If you want to use Gemini API, change this to "google"
 // Otherwise, keep this as "openai". Changing to anything else would still use OpenAI API
-const provider = "openai";
+const provider = "google";
 
 // Change to a different URL if not using Mistral, examples are shown below
 // https://api.mistral.ai/v1
