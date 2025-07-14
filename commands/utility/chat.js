@@ -59,7 +59,7 @@ module.exports = {
                 } else {
                     await sendCharacterMessage({
                         userId,
-                        characterNameOverride: charName,
+                        charName,
                         message: reply,
                         interactionChannel: interaction.channel
                     });
@@ -73,7 +73,7 @@ module.exports = {
                 userId,
                 username,
                 prompt,
-                characterNameOverride: charName
+                charName
             });
 
             if (!interaction.channel) {
@@ -81,7 +81,7 @@ module.exports = {
             } else {
                 await sendCharacterMessage({
                     userId,
-                    characterNameOverride: charName,
+                    charName,
                     message: reply,
                     interactionChannel: interaction.channel
                 });

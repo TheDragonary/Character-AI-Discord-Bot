@@ -1,3 +1,7 @@
+// If you want to use Gemini API, change this to "google"
+// Otherwise, keep this as "openai". Changing to anything else would still use OpenAI API
+const provider = "openai";
+
 // Change to a different URL if not using Mistral, examples are shown below
 // https://api.mistral.ai/v1
 // https://generativelanguage.googleapis.com/v1beta
@@ -16,4 +20,4 @@ const apiKey = process.env.MISTRAL_API_KEY;
 const model = "mistral-medium-latest";
 const visionModel = "pixtral-large-latest";
 
-module.exports = { baseURL, apiKey, model, visionModel };
+module.exports = { provider, baseURL, apiKey, model, visionModel };

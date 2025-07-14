@@ -106,7 +106,7 @@ module.exports = {
                 });
             } catch (error) {
                 console.error(error);
-                await interaction.editReply('There was an error while adding the character.');
+                await interaction.editReply(error.message || 'There was an error while adding the character');
             }
 
         } else if (subcommand == 'delete') {
