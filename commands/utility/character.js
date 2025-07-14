@@ -165,11 +165,11 @@ module.exports = {
 
             try {
                 const { rows: userChars } = await db.query(
-                    'SELECT character_name FROM characters WHERE user_id = $1',
+                    'SELECT character_name FROM characters WHERE user_id = $1 ORDER BY character_name',
                     [userId]
                 );
                 const { rows: globalChars } = await db.query(
-                    'SELECT character_name FROM characters WHERE user_id IS NULL'
+                    'SELECT character_name FROM characters WHERE user_id IS NULL ORDER BY character_name'
                 );
 
                 const userList = userChars.map((r,i) => `${i+1}. ${r.character_name}`).join('\n') || 'None';
