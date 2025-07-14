@@ -27,7 +27,6 @@ async function getAIResponse(provider, model, prompt, systemPrompt, description,
         const payload = {
             model: 'gemini-2.5-flash',
             contents: [
-                { role: 'model', parts: [{ text: first_mes }] },
                 ...chatHistory,
                 { role: 'user', parts: [{ text: prompt }] }
             ],
@@ -73,7 +72,6 @@ async function getAIResponse(provider, model, prompt, systemPrompt, description,
             model,
             messages: [
                 { role: "system", content: systemParts.join('\n\n') },
-                { role: "assistant", content: first_mes },
                 ...chatHistory,
                 { role: "user", content: prompt }
             ],
