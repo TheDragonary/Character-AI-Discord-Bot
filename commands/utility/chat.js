@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { handleCharacterChat } = require('../../chatHandler');
+const { handleCharacterChat, splitMessage } = require('../../chatHandler');
 const { sendCharacterMessage, getFirstMessage } = require('../../webhookHandler');
 const { autocompleteCharacters } = require('../../autocomplete');
 const db = require('../../db');
@@ -55,7 +55,14 @@ module.exports = {
                 );
 
                 if (!interaction.channel) {
-                    await interaction.editReply(reply);
+                    const chunks = splitMessage(reply);
+                    for (let i = 0; i < chunks.length; i++) {
+                        if (i === 0) {
+                            await interaction.editReply(chunks[i]);
+                        } else {
+                            await interaction.followUp(chunks[i]);
+                        }
+                    }
                 } else {
                     await sendCharacterMessage({
                         userId,
@@ -77,7 +84,14 @@ module.exports = {
             });
 
             if (!interaction.channel) {
-                await interaction.editReply(reply);
+                const chunks = splitMessage(reply);
+                for (let i = 0; i < chunks.length; i++) {
+                    if (i === 0) {
+                        await interaction.editReply(chunks[i]);
+                    } else {
+                        await interaction.followUp(chunks[i]);
+                    }
+                }
             } else {
                 await sendCharacterMessage({
                     userId,
