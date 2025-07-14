@@ -1,5 +1,5 @@
 const { WebhookClient } = require('discord.js');
-const { splitMessage } = require('./chatHandler');
+const { getCharacterData, splitMessage } = require('./utils');
 const db = require('./db');
 
 async function getWebhookInfo(guildId) {
@@ -37,33 +37,6 @@ async function getGuildWebhook(guildId, interactionChannel) {
     
     const webhook = await createWebhook(guildId, interactionChannel);
     return new WebhookClient({ id: webhook.id, token: webhook.token });
-}
-
-async function getCharacterData(userId, charName) {
-    if (!charName) {
-        const { rows } = await db.query(
-            'SELECT default_character FROM user_settings WHERE user_id = $1',
-            [userId]
-        );
-        if (!rows.length || !rows[0].default_character) {
-            throw new Error('No character specified and no default character set.');
-        }
-        charName = rows[0].default_character;
-    }
-
-    const { rows: characterRows } = await db.query(
-        `SELECT * FROM characters 
-        WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2
-        ORDER BY user_id NULLS LAST
-        LIMIT 1`,
-        [userId, charName]
-    );
-
-    if (!characterRows.length) {
-        throw new Error(`Character "${charName}" not found.`);
-    }
-
-    return characterRows[0];
 }
 
 async function getCharacterWithWebhook(userId, charName, interactionChannel) {
@@ -123,45 +96,7 @@ async function getStoredWebhookIds() {
     return rows.map(row => row.webhook_id);
 }
 
-async function getFirstMessage(userId, username, charName) {
-    if (!charName) {
-        const { rows } = await db.query(
-            'SELECT default_character FROM user_settings WHERE user_id = $1',
-            [userId]
-        );
-        if (!rows.length || !rows[0].default_character) {
-            throw new Error('No character specified and no default character set.');
-        }
-        charName = rows[0].default_character;
-    }
-
-    const { rows } = await db.query(
-        `SELECT first_mes FROM characters 
-        WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2
-        ORDER BY user_id NULLS LAST
-        LIMIT 1`,
-        [userId, charName]
-    );
-
-    if (!rows.length) {
-        throw new Error(`Character "${charName}" not found for user ${userId}.`);
-    }
-
-    await db.query(`
-        INSERT INTO user_settings (user_id, default_character)
-        VALUES ($1, $2)
-        ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character`,
-        [userId, charName]
-    );
-
-    const safeReplace = (str) =>
-        str.replace(/\{\{user\}\}/gi, username).replace(/\{\{char\}\}/gi, charName);
-
-    return safeReplace(rows[0]?.first_mes);
-}
-
 module.exports = {
     sendCharacterMessage,
-    getStoredWebhookIds,
-    getFirstMessage
+    getStoredWebhookIds
 };

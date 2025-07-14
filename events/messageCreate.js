@@ -1,6 +1,7 @@
 const { Events, MessageFlags } = require('discord.js');
 const { handleCharacterChat } = require('../chatHandler');
-const { sendCharacterMessage, getStoredWebhookIds, getFirstMessage } = require('../webhookHandler');
+const { sendCharacterMessage, getStoredWebhookIds } = require('../webhookHandler');
+const { getFirstMessage } = require('../utils');
 const db = require('../db');
 
 module.exports = {

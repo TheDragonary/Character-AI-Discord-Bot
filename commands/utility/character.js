@@ -1,7 +1,8 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const { sendCharacterMessage, getFirstMessage } = require('../../webhookHandler');
+const { sendCharacterMessage } = require('../../webhookHandler');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteCharacters, autocompleteUserCharacters } = require('../../autocomplete');
+const { setDefaultCharacter, getFirstMessage, normaliseMetadata, formatCharacterList } = require('../../utils');
 const db = require('../../db');
 
 module.exports = {
@@ -38,16 +39,9 @@ module.exports = {
 
             try {
                 const image = interaction.options.getAttachment('card');
-
-                const metadata = await extractImageData(image.url);
-
                 const userId = interaction.user.id;
-                const charName = metadata.data?.name || metadata.name;
-                const description = metadata.data?.description || metadata.description || '';
-                const personality = metadata.data?.personality || metadata.personality || '';
-                const scenario = metadata.data?.scenario || metadata.scenario || '';
-                const first_mes = metadata.data?.first_mes || metadata.first_mes || '';
-                const mes_example = metadata.data?.mes_example || metadata.mes_example || '';
+                const metadata = await extractImageData(image.url);
+                const { charName, description, personality, scenario, first_mes, mes_example } = normaliseMetadata(metadata);
                 
                 if (!charName) {
                     return await interaction.editReply('❌ Character name is missing or invalid in the card metadata.');
@@ -100,12 +94,7 @@ module.exports = {
                         [userId, charName, reply]
                     );
 
-                    await db.query(`
-                        INSERT INTO user_settings (user_id, default_character)
-                        VALUES ($1, $2)
-                        ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character`,
-                        [userId, charName]
-                    );
+                    await setDefaultCharacter(userId, charName);
 
                     await sendCharacterMessage({
                         userId,
@@ -172,8 +161,8 @@ module.exports = {
                     'SELECT character_name FROM characters WHERE user_id IS NULL ORDER BY character_name'
                 );
 
-                const userList = userChars.map((r,i) => `${i+1}. ${r.character_name}`).join('\n') || 'None';
-                const globalList = globalChars.map((r,i) => `${i+1}. ${r.character_name}`).join('\n') || 'None';
+                const userList = formatCharacterList(userChars);
+                const globalList = formatCharacterList(globalChars);
 
                 await interaction.editReply(`👤 **Your Characters:**\n${userList}\n\n🌍 **Global Characters:**\n${globalList}`);
 
