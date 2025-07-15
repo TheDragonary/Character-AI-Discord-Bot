@@ -71,7 +71,7 @@ module.exports = {
                         userId: message.author.id,
                         characterNameOverride: charName,
                         message: reply,
-                        interactionChannel: message.channel
+                        channel: message.channel
                     });
                     return;
                 }
@@ -87,7 +87,7 @@ module.exports = {
                 await sendCharacterMessage({
                     userId: message.author.id,
                     message: response,
-                    interactionChannel: message.channel
+                    channel: message.channel
                 });
             } catch (error) {
                 console.error(error);

@@ -100,7 +100,7 @@ module.exports = {
                         userId,
                         characterNameOverride: charName,
                         message: reply,
-                        interactionChannel: interaction.channel
+                        channel: interaction.channel
                     });
                 });
             } catch (error) {

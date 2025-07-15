@@ -69,7 +69,7 @@ module.exports = {
                         userId,
                         charName,
                         message: reply,
-                        interactionChannel: interaction.channel
+                        channel: interaction.channel
                     });
 
                     await interaction.deleteReply();
@@ -98,7 +98,7 @@ module.exports = {
                     userId,
                     charName,
                     message: reply,
-                    interactionChannel: interaction.channel
+                    channel: interaction.channel
                 });
 
                 await interaction.editReply(`${interaction.user.displayName}: ${prompt}`);

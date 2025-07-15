@@ -50,7 +50,7 @@ module.exports = {
                         userId,
                         charName,
                         message: reply,
-                        interactionChannel: interaction.channel
+                        channel: interaction.channel
                     });
                     await interaction.reply('First message resent.');
                 }
@@ -81,7 +81,7 @@ module.exports = {
                         userId,
                         charName,
                         message: rows[0].content,
-                        interactionChannel: interaction.channel
+                        channel: interaction.channel
                     });
                     await interaction.reply('Last message resent.');
                 }

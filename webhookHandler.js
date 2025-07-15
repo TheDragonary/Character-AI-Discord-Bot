@@ -4,49 +4,61 @@ const db = require('./db');
 
 async function getWebhookInfo(guildId) {
     const { rows } = await db.query(
-        'SELECT webhook_id, webhook_token FROM guild_webhooks WHERE guild_id = $1',
+        'SELECT channel_id, webhook_id, webhook_token FROM guild_webhooks WHERE guild_id = $1',
         [guildId]
     );
     return rows.length > 0 ? rows[0] : null;
 }
 
-async function createWebhook(guildId, interactionChannel) {
-    if (!interactionChannel) throw new Error('No channel provided for webhook creation.');
+async function createWebhook(guildId, channel) {
+    if (!channel) throw new Error('No channel provided for webhook creation.');
 
-    const webhook = await interactionChannel.createWebhook({
+    const existing = await getWebhookInfo(guildId);
+
+    if (existing) {
+        try {
+            const oldWebhook = new WebhookClient({ id: existing.webhook_id, token: existing.webhook_token });
+            await oldWebhook.delete();
+        } catch (err) {
+            console.warn('Failed to delete old webhook from Discord:', err.message);
+        }
+
+        await db.query('DELETE FROM guild_webhooks WHERE guild_id = $1', [guildId]);
+    }
+
+    const webhook = await channel.createWebhook({
         name: 'Character Bot Webhook',
         avatar: null
     });
 
     await db.query(
-        `INSERT INTO guild_webhooks (guild_id, webhook_id, webhook_token)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (guild_id) DO UPDATE SET webhook_id = EXCLUDED.webhook_id, webhook_token = EXCLUDED.webhook_token`,
-        [guildId, webhook.id, webhook.token]
+        `INSERT INTO guild_webhooks (guild_id, channel_id, webhook_id, webhook_token)
+         VALUES ($1, $2, $3, $4)`,
+        [guildId, channel.id, webhook.id, webhook.token]
     );
 
     return webhook;
 }
 
-async function getGuildWebhook(guildId, interactionChannel) {
+async function getGuildWebhook(guildId, channel) {
     const webhookInfo = await getWebhookInfo(guildId);
 
-    if (webhookInfo) {
+    if (webhookInfo && webhookInfo.channel_id === channel.id) {
         return new WebhookClient({ id: webhookInfo.webhook_id, token: webhookInfo.webhook_token });
     }
     
-    const webhook = await createWebhook(guildId, interactionChannel);
+    const webhook = await createWebhook(guildId, channel);
     return new WebhookClient({ id: webhook.id, token: webhook.token });
 }
 
-async function getCharacterWithWebhook(userId, charName, interactionChannel) {
-    if (!interactionChannel?.guild) {
+async function getCharacterWithWebhook(userId, charName, channel) {
+    if (!channel?.guild) {
         throw new Error('Only guild channels are supported for webhooks.');
     }
 
-    const guildId = interactionChannel.guild.id;
+    const guildId = channel.guild.id;
     const characterData = await getCharacterData(userId, charName);
-    const webhookClient = await getGuildWebhook(guildId, interactionChannel);
+    const webhookClient = await getGuildWebhook(guildId, channel);
 
     return {
         name: characterData.character_name,
@@ -55,8 +67,8 @@ async function getCharacterWithWebhook(userId, charName, interactionChannel) {
     };
 }
 
-async function sendCharacterMessage({ userId, charName, message, interactionChannel }) {
-    const character = await getCharacterWithWebhook(userId, charName, interactionChannel);
+async function sendCharacterMessage({ userId, charName, message, channel }) {
+    const character = await getCharacterWithWebhook(userId, charName, channel);
     const chunks = splitMessage(message);
 
     try {
@@ -70,13 +82,11 @@ async function sendCharacterMessage({ userId, charName, message, interactionChan
     } catch (error) {
         if (error.code === 10015) { // Unknown Webhook
             console.warn('Webhook missing or invalid. Recreating...');
-            const guildId = interactionChannel.guild.id;
-            await db.query(
-                'DELETE FROM guild_webhooks WHERE guild_id = $1',
-                [guildId]
-            );
 
-            const newWebhookClient = await getGuildWebhook(guildId, interactionChannel);
+            const guildId = channel.guild.id;
+            await db.query('DELETE FROM guild_webhooks WHERE guild_id = $1', [guildId]);
+
+            const newWebhookClient = await getGuildWebhook(guildId, channel);
 
             for (let chunk of chunks) {
                 await newWebhookClient.send({
