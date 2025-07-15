@@ -1,7 +1,7 @@
 const { Events, MessageFlags } = require('discord.js');
 const { handleCharacterChat } = require('../chatHandler');
 const { sendCharacterMessage, getStoredWebhookIds } = require('../webhookHandler');
-const { getDefaultCharacter, getFirstMessage } = require('../utils/dbUtils');
+const { getDefaultCharacter, getFirstMessage } = require('../utils/characterUtils');
 const db = require('../db');
 
 function cleanPrompt(content) {

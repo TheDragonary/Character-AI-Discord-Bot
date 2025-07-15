@@ -1,6 +1,6 @@
 const { provider, model } = require('./ai/aiSettings');
 const { getAIResponse } = require('./ai/aiResponse');
-const { getCharacterData, setDefaultCharacter } = require('./utils/dbUtils');
+const { getCharacterData, setDefaultCharacter, getCharacterHistory, addCharacterHistoryPair, pruneCharacterHistory } = require('./utils/characterUtils');
 const { formatCharacterFields } = require('./utils/formatUtils');
 const db = require('./db');
 
@@ -33,31 +33,13 @@ async function handleCharacterChat({ userId, username, prompt, charName }) {
     //     a real person would in conversation. Do not describe actions unless the character themselves would say it aloud. Avoid exposition, scene-setting, or 
     //     story narration unless explicitly prompted. Only output dialogue — no internal thoughts or roleplay unless the user initiates it.`;
 
-    const { rows: historyRows } = await db.query(
-        `SELECT role, content FROM character_history 
-         WHERE user_id = $1 AND character_name = $2 
-         ORDER BY timestamp DESC LIMIT 10`,
-        [userId, charName]
-    );
+    const historyRows = await getCharacterHistory(userId, charName);
 
     const reply = await getAIResponse(provider, { model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows });
 
-    await db.query(
-        `INSERT INTO character_history (user_id, character_name, role, content)
-         VALUES ($1, $2, 'user', $3), ($1, $2, 'character', $4)`,
-        [userId, charName, prompt, reply]
-    );
+    await addCharacterHistoryPair(userId, charName, prompt, reply);
 
-    await db.query(
-        `DELETE FROM character_history
-         WHERE id IN (
-             SELECT id FROM character_history
-             WHERE user_id = $1 AND character_name = $2
-             ORDER BY timestamp DESC
-             OFFSET $3
-         )`,
-        [userId, charName, CHARACTER_HISTORY_LIMIT]
-    );
+    await pruneCharacterHistory(userId, charName, CHARACTER_HISTORY_LIMIT);
 
     console.log(reply);
     return reply;

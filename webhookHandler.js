@@ -1,5 +1,5 @@
 const { WebhookClient } = require('discord.js');
-const { getCharacterData } = require('./utils/dbUtils');
+const { getCharacterData } = require('./utils/characterUtils');
 const { splitMessage } = require('./utils/formatUtils');
 const db = require('./db');
 

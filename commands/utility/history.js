@@ -13,16 +13,16 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('delete')
-                .setDescription('Delete history from a specific index')
+                .setDescription('Delete the last 2 messages for a character')
                 .addStringOption(option =>
                     option.setName('character')
                         .setDescription('Character name')
                         .setRequired(true)
                         .setAutocomplete(true))
                 .addIntegerOption(option =>
-                    option.setName('from')
-                        .setDescription('Delete messages starting from this index (0-based)')
-                        .setRequired(true)))
+                    option.setName('amount')
+                        .setDescription('Number of messages to delete')
+                        .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('clear')
@@ -68,7 +68,7 @@ module.exports = {
             const from = interaction.options.getInteger('from');
 
             const { rows } = await db.query(
-                'SELECT id FROM character_history WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2 ORDER BY id',
+                'SELECT id FROM character_history WHERE user_id = $1 AND character_name = $2 ORDER BY id DESC',
                 [userId, character]
             );
 
@@ -76,14 +76,18 @@ module.exports = {
                 return interaction.reply({ content: `❌ No history found for character "${character}".`, flags: MessageFlags.Ephemeral });
             }
 
-            const idsToDelete = rows.slice(from).map(r => r.id);
+            const amount = interaction.options.getInteger('amount') ?? 2;
+            const idsToDelete = rows.slice(0, amount).map(r => r.id);
 
             await db.query(
                 'DELETE FROM character_history WHERE id = ANY($1)',
                 [idsToDelete]
             );
 
-            return interaction.reply({ content: `🗑️ Deleted ${idsToDelete.length} messages from index ${from} for character "${character}".`, flags: MessageFlags.Ephemeral });
+            return interaction.reply({
+                content: `🗑️ Deleted the last ${idsToDelete.length} messages for character "${character}".`,
+                flags: MessageFlags.Ephemeral
+            });
 
         } else if (subcommand === 'clear') {
             const character = interaction.options.getString('character');

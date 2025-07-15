@@ -2,7 +2,7 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteCharacters, autocompleteUserCharacters } = require('../../autocomplete');
-const { setDefaultCharacter, getFirstMessage } = require('../../utils/dbUtils');
+const { setDefaultCharacter, getFirstMessage } = require('../../utils/characterUtils');
 const { normaliseMetadata, formatCharacterList } = require('../../utils/formatUtils');
 const db = require('../../db');
 

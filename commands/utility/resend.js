@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { autocompleteCharacters } = require('../../autocomplete');
-const { getFirstMessage } = require('../../utils/dbUtils');
+const { getFirstMessage } = require('../../utils/characterUtils');
 const { splitMessage } = require('../../utils/formatUtils');
 const db = require('../../db');
 

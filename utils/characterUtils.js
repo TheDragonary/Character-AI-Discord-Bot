@@ -25,6 +25,7 @@ async function resolveCharacterName(userId, charName) {
 }
 
 async function fetchCharacter(userId, charName, fields = '*') {
+    charName = await resolveCharacterName(userId, charName);
     const { rows } = await db.query(
         `SELECT ${fields} FROM characters 
         WHERE character_name = $1 AND (user_id = $2 OR user_id IS NULL)
@@ -51,10 +52,53 @@ async function getFirstMessage(userId, username, charName) {
     return first_mes;
 }
 
+async function getCharacterHistory(userId, charName, limit = 10) {
+    charName = await resolveCharacterName(userId, charName);
+    const { rows } = await db.query(
+        `SELECT role, content FROM character_history 
+        WHERE user_id = $1 AND character_name = $2 
+        ORDER BY timestamp DESC LIMIT $3`,
+        [userId, charName, limit]
+    );
+    return rows;
+}
+
+async function addCharacterHistory(userId, charName, role, content) {
+    charName = await resolveCharacterName(userId, charName);
+    await db.query('INSERT INTO character_history (user_id, character_name, role, content) VALUES ($1, $2, $3, $4)', [userId, charName, role, content]);
+}
+
+async function addCharacterHistoryPair(userId, charName, prompt, reply) {
+    charName = await resolveCharacterName(userId, charName);
+    await db.query(
+        `INSERT INTO character_history (user_id, character_name, role, content)
+         VALUES ($1, $2, 'user', $3), ($1, $2, 'character', $4)`,
+        [userId, charName, prompt, reply]
+    );
+}
+
+async function pruneCharacterHistory(userId, charName, limit = 20) {
+    charName = await resolveCharacterName(userId, charName);
+    await db.query(
+        `DELETE FROM character_history
+         WHERE id IN (
+             SELECT id FROM character_history
+             WHERE user_id = $1 AND character_name = $2
+             ORDER BY timestamp DESC
+             OFFSET $3
+         )`,
+        [userId, charName, limit]
+    );
+}
+
 module.exports = {
     getDefaultCharacter,
     setDefaultCharacter,
     resolveCharacterName,
     getCharacterData,
-    getFirstMessage
+    getFirstMessage,
+    getCharacterHistory,
+    addCharacterHistory,
+    addCharacterHistoryPair,
+    pruneCharacterHistory
 };
