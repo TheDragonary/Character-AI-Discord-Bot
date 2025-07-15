@@ -2,7 +2,8 @@ const { SlashCommandBuilder } = require('discord.js');
 const { handleCharacterChat } = require('../../chatHandler');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { autocompleteCharacters } = require('../../autocomplete');
-const { getFirstMessage, splitMessage } = require('../../utils');
+const { getFirstMessage } = require('../../utils/dbUtils');
+const { splitMessage } = require('../../utils/formatUtils');
 const db = require('../../db');
 
 module.exports = {

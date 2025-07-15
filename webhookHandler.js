@@ -1,5 +1,6 @@
 const { WebhookClient } = require('discord.js');
-const { getCharacterData, splitMessage } = require('./utils');
+const { getCharacterData } = require('./utils/dbUtils');
+const { splitMessage } = require('./utils/formatUtils');
 const db = require('./db');
 
 async function getWebhookInfo(guildId) {

@@ -2,7 +2,8 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteCharacters, autocompleteUserCharacters } = require('../../autocomplete');
-const { setDefaultCharacter, getFirstMessage, normaliseMetadata, formatCharacterList } = require('../../utils');
+const { setDefaultCharacter, getFirstMessage } = require('../../utils/dbUtils');
+const { normaliseMetadata, formatCharacterList } = require('../../utils/formatUtils');
 const db = require('../../db');
 
 module.exports = {

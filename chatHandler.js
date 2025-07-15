@@ -1,6 +1,7 @@
 const { provider, model } = require('./ai/aiSettings');
 const { getAIResponse } = require('./ai/aiResponse');
-const { getCharacterData, setDefaultCharacter, formatCharacterFields } = require('./utils');
+const { getCharacterData, setDefaultCharacter } = require('./utils/dbUtils');
+const { formatCharacterFields } = require('./utils/formatUtils');
 const db = require('./db');
 
 const CHARACTER_HISTORY_LIMIT = 20;
