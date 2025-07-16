@@ -1,9 +1,8 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { autocompleteCharacters } = require('../../autocomplete');
-const { setDefaultCharacter, resolveCharacterName, getFirstMessage } = require('../../utils/characterUtils');
+const { resolveCharacterName, getFirstMessage, getLastMessage } = require('../../utils/characterUtils');
 const { splitMessage } = require('../../utils/formatUtils');
-const db = require('../../db');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -21,51 +20,30 @@ module.exports = {
 
     async execute(interaction) {
         try {
+            const firstFlag = interaction.options.getBoolean('first');
             const userId = interaction.user.id;
             const name = interaction.options.getString('character') || await resolveCharacterName(userId);
-            
-            await setDefaultCharacter(userId, name);
 
-            if (interaction.options.getBoolean('first')) {
-                const reply = await getFirstMessage(userId, interaction.user.username, name);
-                if (!interaction.channel) {
-                    await interaction.reply(reply);
-                } else {
-                    await sendCharacterMessage({
-                        userId,
-                        name,
-                        message: reply,
-                        channel: interaction.channel
-                    });
-                    await interaction.reply('First message resent.');
+            let reply;
+            if (firstFlag) {
+                reply = await getFirstMessage(userId, interaction.user.username, name);
+            } else {
+                reply = await getLastMessage(userId, name);
+            }
+
+            if (!interaction.channel) {
+                const chunks = splitMessage(reply);
+                for (let i = 0; i < chunks.length; i++) {
+                    i === 0 ? await interaction.editReply(chunks[i]) : await interaction.followUp(chunks[i]);
                 }
             } else {
-                const { rows } = await db.query(
-                    `SELECT * FROM character_history
-                    WHERE user_id = $1 AND character_name = $2 AND role = 'character'
-                    ORDER BY timestamp DESC
-                    LIMIT 1`,
-                    [userId, name]
-                );
-            
-                if (!rows.length) {
-                    throw new Error(`No history found for character "${name}".`);
-                }
-
-                if (!interaction.channel) {
-                    const chunks = splitMessage(rows[0].content);
-                    for (let i = 0; i < chunks.length; i++) {
-                        i === 0 ? await interaction.editReply(chunks[i]) : await interaction.followUp(chunks[i]);
-                    }
-                } else {
-                    await sendCharacterMessage({
-                        userId,
-                        name,
-                        message: rows[0].content,
-                        channel: interaction.channel
-                    });
-                    await interaction.reply('Last message resent.');
-                }
+                await sendCharacterMessage({
+                    userId,
+                    name,
+                    message: reply,
+                    channel: interaction.channel
+                });
+                await interaction.reply(firstFlag ? 'First message resent.' : 'Last message resent.');
             }
         } catch (error) {
             console.error(error);
