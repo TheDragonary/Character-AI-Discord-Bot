@@ -2,7 +2,8 @@ const { SlashCommandBuilder } = require('discord.js');
 const { handleCharacterChat } = require('../../chatHandler');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { autocompleteCharacters } = require('../../autocomplete');
-const { getFirstMessage } = require('../../utils/characterUtils');
+const { resolveCharacterName, getFirstMessage } = require('../../utils/characterUtils');
+const { addCharacterHistory, checkHistoryExists } = require('../../utils/characterHistoryUtils');
 const { splitMessage } = require('../../utils/formatUtils');
 const db = require('../../db');
 
@@ -23,52 +24,25 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply();
 
-        const prompt = interaction.options.getString('prompt');
-        let charName = interaction.options.getString('character');
         const userId = interaction.user.id;
         const username = interaction.user.displayName || interaction.user.username;
-
-        if (!charName) {
-            const { rows } = await db.query(
-                'SELECT default_character FROM user_settings WHERE user_id = $1',
-                [userId]
-            );
-
-            if (!rows.length || !rows[0].default_character) {
-                return await interaction.editReply('No character specified and no default character set.');
-            }
-
-            charName = rows[0].default_character;
-        }
+        const prompt = interaction.options.getString('prompt');
+        const name = interaction.options.getString('character') || await resolveCharacterName(userId);
 
         try {
-            const { rows: historyRows } = await db.query(
-                'SELECT 1 FROM character_history WHERE user_id = $1 AND character_name = $2 LIMIT 1',
-                [userId, charName]
-            );
-
-            if (historyRows.length === 0) {
-                const reply = await getFirstMessage(userId, username, charName);
-                
-                await db.query(
-                    `INSERT INTO character_history (user_id, character_name, role, content)
-                        VALUES ($1, $2, 'character', $3)`,
-                    [userId, charName, reply]
-                );
+            if (!(await checkHistoryExists(userId, name))) {
+                const reply = await getFirstMessage(userId, username, name);
+                await addCharacterHistory(userId, name, 'character', reply);
 
                 if (!interaction.channel) {
                     const chunks = splitMessage(reply);
                     for (let i = 0; i < chunks.length; i++) {
-                        if (i === 0) {
-                            await interaction.editReply(chunks[i]);
-                        } else {
-                            await interaction.followUp(chunks[i]);
-                        }
+                        i === 0 ? await interaction.editReply(chunks[i]) : await interaction.followUp(chunks[i]);
                     }
                 } else {
                     await sendCharacterMessage({
                         userId,
-                        charName,
+                        name,
                         message: reply,
                         channel: interaction.channel
                     });
@@ -82,22 +56,18 @@ module.exports = {
                 userId,
                 username,
                 prompt,
-                charName
+                name
             });
 
             if (!interaction.channel) {
                 const chunks = splitMessage(reply);
                 for (let i = 0; i < chunks.length; i++) {
-                    if (i === 0) {
-                        await interaction.editReply(chunks[i]);
-                    } else {
-                        await interaction.followUp(chunks[i]);
-                    }
+                    i === 0 ? await interaction.editReply(chunks[i]) : await interaction.followUp(chunks[i]);
                 }
             } else {
                 await sendCharacterMessage({
                     userId,
-                    charName,
+                    name,
                     message: reply,
                     channel: interaction.channel
                 });

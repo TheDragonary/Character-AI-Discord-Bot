@@ -1,4 +1,5 @@
 const db = require('../db');
+const { formatCharacterFields, normaliseMetadata } = require('./formatUtils');
 
 async function getDefaultCharacter(userId) {
     const { rows } = await db.query(
@@ -11,94 +12,97 @@ async function getDefaultCharacter(userId) {
     return rows[0].default_character;
 }
 
-async function setDefaultCharacter(userId, charName) {
+async function setDefaultCharacter(userId, name) {
     await db.query(
         `INSERT INTO user_settings (user_id, default_character)
         VALUES ($1, $2)
         ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character`,
-        [userId, charName]
+        [userId, name]
     );
 }
 
-async function resolveCharacterName(userId, charName) {
-    return charName ?? await getDefaultCharacter(userId);
+async function resolveCharacterName(userId, name) {
+    if (!name) {
+        if (!userId) {
+            throw new Error('Cannot resolve character name without a user ID.');
+        }
+        return await getDefaultCharacter(userId);
+    }
+    return name;
 }
 
-async function fetchCharacter(userId, charName, fields = '*') {
-    charName = await resolveCharacterName(userId, charName);
+async function fetchCharacter(userId, name, fields = '*') {
+    name = await resolveCharacterName(userId, name);
     const { rows } = await db.query(
         `SELECT ${fields} FROM characters 
         WHERE character_name = $1 AND (user_id = $2 OR user_id IS NULL)
         ORDER BY user_id NULLS LAST
         LIMIT 1`,
-        [charName, userId]
+        [name, userId]
     );
     return rows[0] || null;
 }
 
-async function getCharacterData(userId, charName) {
-    charName = await resolveCharacterName(userId, charName);
-    const character = await fetchCharacter(userId, charName);
-    if (!character) throw new Error(`Character "${charName}" not found.`);
+async function getCharacterData(userId, name) {
+    name = await resolveCharacterName(userId, name);
+    const character = await fetchCharacter(userId, name);
+    if (!character) throw new Error(`Character "${name}" not found.`);
     return character;
 }
 
-async function getFirstMessage(userId, username, charName) {
-    charName = await resolveCharacterName(userId, charName);
-    const character = await fetchCharacter(userId, charName, 'first_mes');
-    if (!character) throw new Error(`Character "${charName}" not found for user ${userId}.`);
-    await setDefaultCharacter(userId, charName);
-    const { first_mes } = formatCharacterFields(character, ['first_mes'], username, charName);
+async function getFirstMessage(userId, username, name) {
+    name = await resolveCharacterName(userId, name);
+    const character = await fetchCharacter(userId, name, 'first_mes');
+    if (!character) throw new Error(`Character "${name}" not found for user ${userId}.`);
+    await setDefaultCharacter(userId, name);
+    const { first_mes } = formatCharacterFields(character, ['first_mes'], username, name);
     return first_mes;
 }
 
-async function getCharacterHistory(userId, charName, limit = 10) {
-    charName = await resolveCharacterName(userId, charName);
-    const { rows } = await db.query(
-        `SELECT role, content FROM character_history 
-        WHERE user_id = $1 AND character_name = $2 
-        ORDER BY timestamp DESC LIMIT $3`,
-        [userId, charName, limit]
-    );
-    return rows;
+async function checkCharacterList(userId, name) {
+    const character = await fetchCharacter(userId, name, 'user_id');
+    if (!character) return null;
+
+    return {
+        isGlobal: character.user_id === null,
+        message: character.user_id === null ? `${name} is already in the global character list.` : `${name} is already in your character list.`
+    };
 }
 
-async function addCharacterHistory(userId, charName, role, content) {
-    charName = await resolveCharacterName(userId, charName);
-    await db.query('INSERT INTO character_history (user_id, character_name, role, content) VALUES ($1, $2, $3, $4)', [userId, charName, role, content]);
-}
+async function addCharacter(userId, metadata, avatar_url) {
+    const { name, description, personality, scenario, first_mes, mes_example } = normaliseMetadata(metadata);
+    const result = await checkCharacterList(userId, name);
+    if (result) throw new Error(result.message);
 
-async function addCharacterHistoryPair(userId, charName, prompt, reply) {
-    charName = await resolveCharacterName(userId, charName);
     await db.query(
-        `INSERT INTO character_history (user_id, character_name, role, content)
-         VALUES ($1, $2, 'user', $3), ($1, $2, 'character', $4)`,
-        [userId, charName, prompt, reply]
+        `INSERT INTO characters 
+        (user_id, character_name, description, personality, scenario, first_mes, mes_example, avatar_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [userId, name, description, personality, scenario, first_mes, mes_example, avatar_url]
     );
 }
 
-async function pruneCharacterHistory(userId, charName, limit = 20) {
-    charName = await resolveCharacterName(userId, charName);
+async function deleteCharacter(userId, name) {
+    const character = await fetchCharacter(userId, name, 'user_id');
+    if (!character) throw new Error(`No character named **${name}** found in your list.`);
+    if (character.user_id === null) throw new Error(`You cannot delete **${name}** from the global character list.`)
+
     await db.query(
-        `DELETE FROM character_history
-         WHERE id IN (
-             SELECT id FROM character_history
-             WHERE user_id = $1 AND character_name = $2
-             ORDER BY timestamp DESC
-             OFFSET $3
-         )`,
-        [userId, charName, limit]
+        'DELETE FROM characters WHERE user_id = $1 AND character_name = $2',
+        [userId, name]
     );
+
+    return `🗑️ Deleted **${name}** from your character list.`;
 }
 
 module.exports = {
     getDefaultCharacter,
     setDefaultCharacter,
     resolveCharacterName,
+    fetchCharacter,
     getCharacterData,
     getFirstMessage,
-    getCharacterHistory,
-    addCharacterHistory,
-    addCharacterHistoryPair,
-    pruneCharacterHistory
+    checkCharacterList,
+    addCharacter,
+    deleteCharacter
 };

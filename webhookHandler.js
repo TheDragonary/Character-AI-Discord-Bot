@@ -52,13 +52,13 @@ async function getGuildWebhook(guildId, channel) {
     return new WebhookClient({ id: webhook.id, token: webhook.token });
 }
 
-async function getCharacterWithWebhook(userId, charName, channel) {
+async function getCharacterWithWebhook(userId, name, channel) {
     if (!channel?.guild) {
         throw new Error('Only guild channels are supported for webhooks.');
     }
 
     const guildId = channel.guild.id;
-    const characterData = await getCharacterData(userId, charName);
+    const characterData = await getCharacterData(userId, name);
     const webhookClient = await getGuildWebhook(guildId, channel);
 
     return {
@@ -68,8 +68,8 @@ async function getCharacterWithWebhook(userId, charName, channel) {
     };
 }
 
-async function sendCharacterMessage({ userId, charName, message, channel }) {
-    const character = await getCharacterWithWebhook(userId, charName, channel);
+async function sendCharacterMessage({ userId, name, message, channel }) {
+    const character = await getCharacterWithWebhook(userId, name, channel);
     const chunks = splitMessage(message);
 
     try {

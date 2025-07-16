@@ -27,18 +27,18 @@ module.exports = {
         if (subcommand === 'default') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-            const charName = interaction.options.getString('character');
+            const name = interaction.options.getString('character');
 
             try {
                 const { rows: charRows } = await db.query(
                     `SELECT character_name FROM characters 
                     WHERE (user_id = $1 OR user_id IS NULL) AND character_name = $2`,
-                    [userId, charName]
+                    [userId, name]
                 );
 
 
                 if (charRows.length === 0) {
-                    await interaction.editReply(`❌ Character **${charName}** not found in your list.`);
+                    await interaction.editReply(`❌ Character **${name}** not found in your list.`);
                     return;
                 }
 
@@ -46,10 +46,10 @@ module.exports = {
                     `INSERT INTO user_settings (user_id, default_character)
                      VALUES ($1, $2)
                      ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character`,
-                    [userId, charName]
+                    [userId, name]
                 );
 
-                await interaction.editReply(`✅ Default character set to **${charName}**.`);
+                await interaction.editReply(`✅ Default character set to **${name}**.`);
             } catch (error) {
                 console.error(error);
                 await interaction.editReply('There was an error while setting your default character.');

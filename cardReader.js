@@ -4,9 +4,7 @@ const PNGtext = require('png-chunk-text');
 
 async function fetchImage(imageUrl) {
     const response = await fetch(imageUrl);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
     return Buffer.from(await response.arrayBuffer());
 }
 
@@ -26,13 +24,13 @@ async function extractImageData(imageUrl) {
     const buffer = await fetchImage(imageUrl);
     const chunks = extractChunks(buffer);
     const character = await extractCharacterData(chunks);
-
-    if (!character) {
-        throw new Error('Image contains no character card metadata.');
-    }
+    if (!character) throw new Error('Image contains no character card metadata.');
 
     const decodedString = Buffer.from(character, 'base64').toString('utf-8');
-    return JSON.parse(decodedString);
+    const metadata = JSON.parse(decodedString);
+    if (!metadata.name) throw new Error('Character name is missing or invalid in the card metadata.');
+
+    return metadata;
 };
 
 module.exports = { extractImageData };

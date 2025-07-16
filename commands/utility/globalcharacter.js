@@ -78,10 +78,8 @@ module.exports = {
                     imageUrl = metadata.avatar_url;
                 }
 
-                const charName = metadata.character_name || metadata.name;
-                if (!charName) {
-                    return await interaction.editReply('❌ Character name is missing or invalid.');
-                }
+                const name = metadata.character_name || metadata.name;
+                if (!name) return await interaction.editReply('❌ Character name is missing or invalid.');
 
                 const {
                     description = '',
@@ -93,14 +91,14 @@ module.exports = {
 
                 const { rows: existingRows } = await db.query(
                     'SELECT * FROM characters WHERE character_name = $1',
-                    [charName]
+                    [name]
                 );
 
                 const existing = existingRows.find(row => row.user_id === interaction.user.id);
                 const isPromotion = !!existing;
 
                 if (existingRows.find(row => row.user_id === null)) {
-                    return await interaction.editReply(`❌ A global character named **${charName}** already exists.`);
+                    return await interaction.editReply(`❌ A global character named **${name}** already exists.`);
                 }
 
                 if (isPromotion) {
@@ -115,7 +113,7 @@ module.exports = {
                     // Delete personal version
                     await db.query(
                         'DELETE FROM characters WHERE character_name = $1 AND user_id = $2',
-                        [charName, existing.user_id]
+                        [name, existing.user_id]
                     );
                 }
 
@@ -123,13 +121,13 @@ module.exports = {
                     `INSERT INTO characters 
                     (user_id, character_name, description, personality, scenario, first_mes, mes_example, avatar_url)
                     VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
-                    [charName, description, personality, scenario, first_mes, mes_example, imageUrl]
+                    [name, description, personality, scenario, first_mes, mes_example, imageUrl]
                 );
 
                 await interaction.editReply(
                     isPromotion
-                        ? `♻️ Personal character **${charName}** was promoted to a global character and updated.`
-                        : `✅ Global character **${charName}** has been added.`
+                        ? `♻️ Personal character **${name}** was promoted to a global character and updated.`
+                        : `✅ Global character **${name}** has been added.`
                 );
             } catch (error) {
                 console.error('Error adding global character:', error);
@@ -137,17 +135,17 @@ module.exports = {
             }
 
         } else if (subcommand === 'delete') {
-            const charName = interaction.options.getString('name');
+            const name = interaction.options.getString('name');
 
             try {
                 // Delete global character
                 const { rowCount } = await db.query(
                     'DELETE FROM characters WHERE user_id IS NULL AND character_name = $1',
-                    [charName]
+                    [name]
                 );
 
                 if (rowCount === 0) {
-                    return await interaction.editReply(`❌ No global character named **${charName}** was found.`);
+                    return await interaction.editReply(`❌ No global character named **${name}** was found.`);
                 }
 
                 // Attempt to restore from archive
@@ -155,7 +153,7 @@ module.exports = {
                     `SELECT * FROM character_archive 
                     WHERE character_name = $1 
                     ORDER BY archived_at DESC LIMIT 1`,
-                    [charName]
+                    [name]
                 );
 
                 if (archived.length > 0) {
@@ -169,9 +167,9 @@ module.exports = {
 
                     await db.query('DELETE FROM character_archive WHERE id = $1', [a.id]);
 
-                    return await interaction.editReply(`🗑️ Global character **${charName}** deleted.\n↩️ Personal version has been restored.`);
+                    return await interaction.editReply(`🗑️ Global character **${name}** deleted.\n↩️ Personal version has been restored.`);
                 } else {
-                    return await interaction.editReply(`🗑️ Global character **${charName}** has been deleted.`);
+                    return await interaction.editReply(`🗑️ Global character **${name}** has been deleted.`);
                 }
             } catch (error) {
                 console.error('Error deleting global character:', error);

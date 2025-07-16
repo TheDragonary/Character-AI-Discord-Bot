@@ -2,7 +2,8 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteCharacters, autocompleteUserCharacters } = require('../../autocomplete');
-const { setDefaultCharacter, getFirstMessage } = require('../../utils/characterUtils');
+const { setDefaultCharacter, getFirstMessage, addCharacter, deleteCharacter } = require('../../utils/characterUtils');
+const { addCharacterHistory, checkHistoryExists } = require('../../utils/characterHistoryUtils');
 const { normaliseMetadata, formatCharacterList } = require('../../utils/formatUtils');
 const db = require('../../db');
 
@@ -42,110 +43,50 @@ module.exports = {
                 const image = interaction.options.getAttachment('card');
                 const userId = interaction.user.id;
                 const metadata = await extractImageData(image.url);
-                const { charName, description, personality, scenario, first_mes, mes_example } = normaliseMetadata(metadata);
-                
-                if (!charName) {
-                    return await interaction.editReply('❌ Character name is missing or invalid in the card metadata.');
-                }
+                const { name } = normaliseMetadata(metadata);
+                if (!name) throw new Error('Character name is missing or invalid in the card metadata.');
 
-                const { rows: globalRows } = await db.query(
-                    'SELECT * FROM characters WHERE character_name = $1 AND user_id IS NULL',
-                    [charName]
-                );
-
-                if (globalRows.length > 0) {
-                    await interaction.editReply(`${charName} is already in the global character list.`);
-                    return;
-                }
-
-                const { rows } = await db.query(
-                    'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
-                    [userId, charName]
-                );
-
-                if (rows.length > 0) {
-                    await interaction.editReply(`${charName} is already in your character list.`);
-                    return;
-                }
-
-                await db.query(
-                    `INSERT INTO characters 
-                    (user_id, character_name, description, personality, scenario, first_mes, mes_example, avatar_url)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                    [userId, charName, description, personality, scenario, first_mes, mes_example, image.url]
-                );
-
-                await interaction.editReply(`✅ Added **${charName}** to your character list.`);
+                await addCharacter(userId, metadata, image.url);
+                await interaction.editReply(`✅ Added **${name}** to your character list.`);
 
                 const followUpMsg = await interaction.followUp("Click 👋 to send the first message.");
-
                 await followUpMsg.react('👋');
 
                 const filter = (reaction, user) =>
                     reaction.emoji.name === '👋' && user.id === interaction.user.id;
 
                 const collector = followUpMsg.createReactionCollector({ filter, max: 1, time: 30000 });
-
                 collector.on('collect', async () => {
-                    const reply = await getFirstMessage(userId, interaction.user.displayName || interaction.user.username, charName);
+                    const reply = await getFirstMessage(userId, interaction.user.displayName || interaction.user.username, name);
 
-                    await db.query(
-                        `INSERT INTO character_history (user_id, character_name, role, content)
-                            VALUES ($1, $2, 'character', $3)`,
-                        [userId, charName, reply]
-                    );
+                    if (!(await checkHistoryExists(userId, name))) await addCharacterHistory(userId, name, 'character', reply);
 
-                    await setDefaultCharacter(userId, charName);
+                    await setDefaultCharacter(userId, name);
 
                     await sendCharacterMessage({
                         userId,
-                        characterNameOverride: charName,
+                        characterNameOverride: name,
                         message: reply,
                         channel: interaction.channel
                     });
                 });
             } catch (error) {
                 console.error(error);
-                await interaction.editReply(error.message || 'There was an error while adding the character');
+                await interaction.editReply(`❌ ${error.message}`);
             }
 
         } else if (subcommand == 'delete') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
             const userId = interaction.user.id;
-            const charName = interaction.options.getString('name');
+            const name = interaction.options.getString('name');
     
             try {
-                const { rows } = await db.query(
-                    'SELECT * FROM characters WHERE user_id = $1 AND character_name = $2',
-                    [userId, charName]
-                );
-
-                if (rows.length === 0) {
-                    const { rows: globalRows } = await db.query(
-                        'SELECT * FROM characters WHERE character_name = $1 AND user_id IS NULL',
-                        [charName]
-                    );
-
-                    if (globalRows.length > 0) {
-                        await interaction.editReply(`❌ You cannot delete a character from the global character list.`);
-                        return;
-                    }
-                }
-
-                const { rowCount } = await db.query(
-                    'DELETE FROM characters WHERE user_id = $1 AND character_name = $2',
-                    [userId, charName]
-                );
-    
-                if (rowCount === 0) {
-                    await interaction.editReply(`❌ No character named **${charName}** found in your list.`);
-                } else {
-                    await interaction.editReply(`🗑️ Deleted **${charName}** from your character list.`);
-                }
-            } catch (err) {
-                console.error(err);
-                await interaction.editReply('There was an error while deleting the character.');
+                const deleted = await deleteCharacter(userId, name);
+                await interaction.editReply(deleted);
+            } catch (error) {
+                console.error(error);
+                await interaction.editReply(`❌ ${error.message}`);
             }
 
         } else if (subcommand == 'list') {
@@ -169,7 +110,7 @@ module.exports = {
 
             } catch (error) {
                 console.error(error);
-                await interaction.editReply('Something went wrong while fetching your character list.');
+                await interaction.editReply(`❌ ${error.message}`);
             }
         }
     },

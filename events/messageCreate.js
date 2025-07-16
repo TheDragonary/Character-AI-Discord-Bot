@@ -43,25 +43,25 @@ module.exports = {
         const username = message.author.displayName || message.author.username;
 
         try {
-            const charName = await getDefaultCharacter(userId);
+            const name = await getDefaultCharacter(userId);
 
             const { rows: historyRows } = await db.query(
                 'SELECT 1 FROM character_history WHERE user_id = $1 AND character_name = $2 LIMIT 1',
-                [userId, charName]
+                [userId, name]
             );
 
             if (historyRows.length === 0) {
-                const reply = await getFirstMessage(userId, username, charName);
+                const reply = await getFirstMessage(userId, username, name);
                 
                 await db.query(
                     `INSERT INTO character_history (user_id, character_name, role, content)
                         VALUES ($1, $2, 'character', $3)`,
-                    [userId, charName, reply]
+                    [userId, name, reply]
                 );
 
                 await sendCharacterMessage({
                     userId,
-                    characterNameOverride: charName,
+                    characterNameOverride: name,
                     message: reply,
                     channel: message.channel
                 });

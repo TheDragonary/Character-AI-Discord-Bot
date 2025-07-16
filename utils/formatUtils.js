@@ -34,13 +34,13 @@ function splitMessage(text, limit = 2000) {
     return chunks;
 }
 
-function replaceCharacterPlaceholders(str = '', username, charName) {
-    return str.replace(/\{\{user\}\}/gi, username).replace(/\{\{char\}\}/gi, charName);
+function replaceCharacterPlaceholders(str = '', username, name) {
+    return str.replace(/\{\{user\}\}/gi, username).replace(/\{\{char\}\}/gi, name);
 }
 
-function formatCharacterFields(data, fields, username, charName) {
+function formatCharacterFields(data, fields, username, name) {
     return Object.fromEntries(
-        fields.map(key => [key, replaceCharacterPlaceholders(data[key] || '', username, charName)])
+        fields.map(key => [key, replaceCharacterPlaceholders(data[key] || '', username, name)])
     );
 }
 
