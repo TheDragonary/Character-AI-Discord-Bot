@@ -2,9 +2,9 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteCharacters, autocompleteUserCharacters } = require('../../autocomplete');
-const { setDefaultCharacter, getFirstMessage, addCharacter, deleteCharacter } = require('../../utils/characterUtils');
+const { setDefaultCharacter, getFirstMessage, addCharacter, deleteCharacter, getCharacterLists } = require('../../utils/characterUtils');
 const { addCharacterHistory, checkHistoryExists } = require('../../utils/characterHistoryUtils');
-const { normaliseMetadata, formatCharacterList } = require('../../utils/formatUtils');
+const { normaliseMetadata } = require('../../utils/formatUtils');
 const db = require('../../db');
 
 module.exports = {
@@ -35,13 +35,13 @@ module.exports = {
 
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
+        const userId = interaction.user.id;
 
         if (subcommand == 'add') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
             try {
                 const image = interaction.options.getAttachment('card');
-                const userId = interaction.user.id;
                 const metadata = await extractImageData(image.url);
                 const { name } = normaliseMetadata(metadata);
                 if (!name) throw new Error('Character name is missing or invalid in the card metadata.');
@@ -78,7 +78,6 @@ module.exports = {
         } else if (subcommand == 'delete') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-            const userId = interaction.user.id;
             const name = interaction.options.getString('name');
     
             try {
@@ -92,22 +91,9 @@ module.exports = {
         } else if (subcommand == 'list') {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-            const userId = interaction.user.id;
-
             try {
-                const { rows: userChars } = await db.query(
-                    'SELECT character_name FROM characters WHERE user_id = $1 ORDER BY character_name',
-                    [userId]
-                );
-                const { rows: globalChars } = await db.query(
-                    'SELECT character_name FROM characters WHERE user_id IS NULL ORDER BY character_name'
-                );
-
-                const userList = formatCharacterList(userChars);
-                const globalList = formatCharacterList(globalChars);
-
+                const { userList, globalList } = await getCharacterLists(userId);
                 await interaction.editReply(`👤 **Your Characters:**\n${userList}\n\n🌍 **Global Characters:**\n${globalList}`);
-
             } catch (error) {
                 console.error(error);
                 await interaction.editReply(`❌ ${error.message}`);

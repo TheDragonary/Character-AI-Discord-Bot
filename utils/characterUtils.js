@@ -1,5 +1,5 @@
 const db = require('../db');
-const { formatCharacterFields, normaliseMetadata } = require('./formatUtils');
+const { formatCharacterFields, normaliseMetadata, formatCharacterList } = require('./formatUtils');
 
 async function getDefaultCharacter(userId) {
     const { rows } = await db.query(
@@ -69,6 +69,28 @@ async function checkCharacterList(userId, name) {
     };
 }
 
+async function getUserCharacterList(userId) {
+    if (!userId) return [];
+    const { rows } = await db.query(
+        'SELECT character_name FROM characters WHERE user_id = $1 ORDER BY character_name',
+        [userId]
+    );
+    return rows;
+}
+
+async function getGlobalCharacterList() {
+    const { rows } = await db.query(
+        'SELECT character_name FROM characters WHERE user_id IS NULL ORDER BY character_name'
+    );
+    return rows;
+}
+    
+async function getCharacterLists(userId) {
+    const userList = formatCharacterList(await getUserCharacterList(userId));
+    const globalList = formatCharacterList(await getGlobalCharacterList());
+    return { userList, globalList };
+}
+
 async function addCharacter(userId, metadata, avatar_url) {
     const { name, description, personality, scenario, first_mes, mes_example } = normaliseMetadata(metadata);
     const result = await checkCharacterList(userId, name);
@@ -103,6 +125,9 @@ module.exports = {
     getCharacterData,
     getFirstMessage,
     checkCharacterList,
+    getUserCharacterList,
+    getGlobalCharacterList,
+    getCharacterLists,
     addCharacter,
     deleteCharacter
 };

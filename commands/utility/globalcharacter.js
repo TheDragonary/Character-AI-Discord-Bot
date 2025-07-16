@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteGlobalCharacters, autocompleteUserCharacters } = require('../../autocomplete');
+const { getCharacterLists } = require('../../utils/characterUtils');
 const db = require('../../db');
 
 const BOT_OWNER_ID = process.env.BOT_OWNER_ID;
@@ -178,15 +179,7 @@ module.exports = {
 
         } else if (subcommand === 'list') {
             try {
-                const { rows } = await db.query(
-                    'SELECT character_name FROM characters WHERE user_id IS NULL ORDER BY character_name'
-                );
-
-                if (rows.length === 0) {
-                    return await interaction.editReply('📭 No global characters found.');
-                }
-
-                const list = rows.map((row, i) => `${i + 1}. ${row.character_name}`).join('\n');
+                const { globalList: list } = await getCharacterLists();
                 await interaction.editReply(`🌍 **Global Characters:**\n${list}`);
             } catch (error) {
                 console.error('Error listing global characters:', error);
