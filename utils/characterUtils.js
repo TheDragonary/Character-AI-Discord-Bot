@@ -1,4 +1,5 @@
 const db = require('../db');
+const { extractImageData } = require('../cardReader');
 const { formatCharacterFields, normaliseMetadata, formatCharacterList } = require('./formatUtils');
 
 async function getDefaultCharacter(userId) {
@@ -86,9 +87,10 @@ async function getGlobalCharacterList() {
 }
     
 async function getCharacterLists(userId) {
-    const userList = formatCharacterList(await getUserCharacterList(userId));
-    const globalList = formatCharacterList(await getGlobalCharacterList());
-    return { userList, globalList };
+    return {
+        user: formatCharacterList(await getUserCharacterList(userId)),
+        global: formatCharacterList(await getGlobalCharacterList())
+    };
 }
 
 async function addCharacter(userId, metadata, avatar_url) {
@@ -117,6 +119,103 @@ async function deleteCharacter(userId, name) {
     return `🗑️ Deleted **${name}** from your character list.`;
 }
 
+async function characterExists(name, globalOnly = false) {
+    const condition = globalOnly ? 'user_id IS NULL' : 'TRUE';
+    const { rows } = await db.query(
+        `SELECT 1 FROM characters WHERE character_name = $1 AND ${condition} LIMIT 1`,
+        [name]
+    );
+    return rows.length > 0;
+}
+
+async function promoteCharacterToGlobal(name, userId, avatar_url) {
+    const { rows } = await db.query(
+        `SELECT * FROM characters WHERE character_name = $1 AND user_id = $2 LIMIT 1`,
+        [name, userId]
+    );
+    if (!rows.length) throw new Error(`Character **${name}** not found in your list.`);
+
+    const personal = rows[0];
+
+    const exists = await characterExists(name, true);
+    if (exists) {
+        throw new Error(`A global character named **${name}** already exists.`);
+    }
+
+    await db.query(
+        `INSERT INTO character_archive (user_id, character_name, description, personality, scenario, first_mes, mes_example, avatar_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [personal.user_id, personal.character_name, personal.description, personal.personality, personal.scenario, personal.first_mes, personal.mes_example, personal.avatar_url]
+    );
+
+    await db.query(
+        'DELETE FROM characters WHERE character_name = $1 AND user_id = $2',
+        [name, userId]
+    );
+
+    await db.query(
+        `INSERT INTO characters 
+         (user_id, character_name, description, personality, scenario, first_mes, mes_example, avatar_url)
+         VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
+        [personal.character_name, personal.description, personal.personality,
+         personal.scenario, personal.first_mes, personal.mes_example, avatar_url ?? personal.avatar_url]
+    );
+
+    return personal;
+}
+
+async function restoreArchivedCharacter(name) {
+    const { rows } = await db.query(
+        `SELECT * FROM character_archive 
+         WHERE character_name = $1 
+         ORDER BY archived_at DESC LIMIT 1`,
+        [name]
+    );
+
+    if (!rows.length) return false;
+    const archived = rows[0];
+
+    await db.query(
+        `INSERT INTO characters 
+         (user_id, character_name, description, personality, scenario, first_mes, mes_example, avatar_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [archived.user_id, archived.character_name, archived.description, archived.personality,
+        archived.scenario, archived.first_mes, archived.mes_example, archived.avatar_url]
+    );
+
+    await db.query('DELETE FROM character_archive WHERE id = $1', [archived.id]);
+    return true;
+}
+
+async function getMetadata(card, personalCharacterName, userId) {
+    let metadata;
+    let imageUrl;
+
+    if (card) {
+        metadata = await extractImageData(card.url);
+        imageUrl = card.url;
+    } else {
+        const { rows } = await db.query(
+            `SELECT * FROM characters WHERE character_name = $1 AND user_id = $2 LIMIT 1`,
+            [personalCharacterName, userId]
+        );
+
+        if (!rows.length) {
+            throw new Error(`Personal character **${personalCharacterName}** not found.`);
+        }
+
+        metadata = rows[0];
+        imageUrl = metadata.avatar_url;
+    }
+
+    const normalised = normaliseMetadata(metadata);
+    if (!normalised.name) {
+        throw new Error('Character name is missing or invalid.');
+    }
+
+    return { metadata: normalised, imageUrl, isPromotion: !card };
+}
+
 module.exports = {
     getDefaultCharacter,
     setDefaultCharacter,
@@ -129,5 +228,9 @@ module.exports = {
     getGlobalCharacterList,
     getCharacterLists,
     addCharacter,
-    deleteCharacter
+    deleteCharacter,
+    characterExists,
+    promoteCharacterToGlobal,
+    restoreArchivedCharacter,
+    getMetadata
 };

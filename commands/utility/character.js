@@ -92,7 +92,7 @@ module.exports = {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
             try {
-                const { userList, globalList } = await getCharacterLists(userId);
+                const { user: userList, global: globalList } = await getCharacterLists(userId);
                 await interaction.editReply(`👤 **Your Characters:**\n${userList}\n\n🌍 **Global Characters:**\n${globalList}`);
             } catch (error) {
                 console.error(error);

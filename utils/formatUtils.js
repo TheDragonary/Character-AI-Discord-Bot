@@ -46,13 +46,15 @@ function formatCharacterFields(data, fields, username, name) {
 
 function normaliseMetadata(metadata) {
     const source = metadata?.data ?? metadata ?? {};
+    const name = source.character_name ?? source.name ?? '';
     return {
-        name: source.name ?? '',
+        name,
         description: source.description ?? '',
         personality: source.personality ?? '',
         scenario: source.scenario ?? '',
         first_mes: source.first_mes ?? '',
         mes_example: source.mes_example ?? '',
+        avatar_url: source.avatar_url ?? null
     };
 }
 
