@@ -3,6 +3,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv').config({ quiet: true });
 
+const db = require('./db');
+const { deleteCharacterThread } = require('./utils/threadUtils');
+
 const token = process.env.DISCORD_TOKEN;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessageReactions] });
@@ -40,6 +43,23 @@ for (const file of eventFiles) {
 
 client.once(Events.ClientReady, readyClient => {
 	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+});
+
+client.on(Events.ThreadDelete, async thread => {
+	try {
+		await deleteCharacterThread(thread.id);
+	} catch (error) {
+		console.error('Error deleting thread record:', error);
+	}
+});
+
+client.on('guildDelete', async (guild) => {
+    try {
+        await db.query('DELETE FROM guild_settings WHERE guild_id = $1', [guild.id]);
+        await db.query('DELETE FROM guild_webhooks WHERE guild_id = $1', [guild.id]);
+    } catch (error) {
+        console.error('Error cleaning up guild data:', error);
+    }
 });
 
 client.login(token);

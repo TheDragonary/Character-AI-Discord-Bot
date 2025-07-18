@@ -1,7 +1,7 @@
 const { provider, model } = require('./ai/aiSettings');
 const { getAIResponse } = require('./ai/aiResponse');
-const { getCharacterData, setDefaultCharacter } = require('./utils/characterUtils');
-const { getCharacterHistory, addCharacterHistoryPair, pruneCharacterHistory } = require('./utils/characterHistoryUtils');
+const { getCharacterData } = require('./utils/characterUtils');
+const { getCharacterHistory, addCharacterHistory } = require('./utils/characterHistoryUtils');
 const { formatCharacterFields } = require('./utils/formatUtils');
 const db = require('./db');
 
@@ -10,8 +10,6 @@ const CHARACTER_HISTORY_LIMIT = 20;
 async function handleCharacterChat({ userId, username, prompt, name }) {
     const characterData = await getCharacterData(userId, name);
     name = characterData.character_name;
-
-    await setDefaultCharacter(userId, name);
 
     const fieldsToReplace = ['description', 'personality', 'scenario', 'first_mes', 'mes_example'];
 
@@ -34,13 +32,12 @@ async function handleCharacterChat({ userId, username, prompt, name }) {
     //     a real person would in conversation. Do not describe actions unless the character themselves would say it aloud. Avoid exposition, scene-setting, or 
     //     story narration unless explicitly prompted. Only output dialogue — no internal thoughts or roleplay unless the user initiates it.`;
 
-    const historyRows = await getCharacterHistory(userId, name);
+    const historyRows = await getCharacterHistory(userId, name, CHARACTER_HISTORY_LIMIT);
 
     const reply = await getAIResponse(provider, { model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows });
 
-    await addCharacterHistoryPair(userId, name, prompt, reply);
-
-    await pruneCharacterHistory(userId, name, CHARACTER_HISTORY_LIMIT);
+    await addCharacterHistory(userId, name, 'user', prompt);
+    await addCharacterHistory(userId, name, 'character', reply);
 
     console.log(reply);
     return reply;

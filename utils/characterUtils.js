@@ -2,38 +2,7 @@ const db = require('../db');
 const { extractImageData } = require('../cardReader');
 const { formatCharacterFields, normaliseMetadata, formatCharacterList } = require('./formatUtils');
 
-async function getDefaultCharacter(userId) {
-    const { rows } = await db.query(
-        'SELECT default_character FROM user_settings WHERE user_id = $1',
-        [userId]
-    );
-    if (!rows.length || !rows[0].default_character) {
-        throw new Error('No character specified and no default character set.');
-    }
-    return rows[0].default_character;
-}
-
-async function setDefaultCharacter(userId, name) {
-    await db.query(
-        `INSERT INTO user_settings (user_id, default_character)
-        VALUES ($1, $2)
-        ON CONFLICT (user_id) DO UPDATE SET default_character = EXCLUDED.default_character`,
-        [userId, name]
-    );
-}
-
-async function resolveCharacterName(userId, name) {
-    if (!name) {
-        if (!userId) {
-            throw new Error('Cannot resolve character name without a user ID.');
-        }
-        return await getDefaultCharacter(userId);
-    }
-    return name;
-}
-
 async function fetchCharacter(userId, name, fields = '*') {
-    name = await resolveCharacterName(userId, name);
     const { rows } = await db.query(
         `SELECT ${fields} FROM characters 
         WHERE character_name = $1 AND (user_id = $2 OR user_id IS NULL)
@@ -45,23 +14,19 @@ async function fetchCharacter(userId, name, fields = '*') {
 }
 
 async function getCharacterData(userId, name) {
-    name = await resolveCharacterName(userId, name);
     const character = await fetchCharacter(userId, name);
     if (!character) throw new Error(`Character "${name}" not found.`);
     return character;
 }
 
 async function getFirstMessage(userId, username, name) {
-    name = await resolveCharacterName(userId, name);
     const character = await fetchCharacter(userId, name, 'first_mes');
     if (!character) throw new Error(`Character "${name}" not found for user ${userId}.`);
-    await setDefaultCharacter(userId, name);
     const { first_mes } = formatCharacterFields(character, ['first_mes'], username, name);
     return first_mes;
 }
 
 async function getLastMessage(userId, name) {
-    name = await resolveCharacterName(userId, name);
     const { rows } = await db.query(
         `SELECT content FROM character_history
          WHERE user_id = $1 AND character_name = $2 AND role = 'character'
@@ -71,8 +36,6 @@ async function getLastMessage(userId, name) {
     );
 
     if (!rows.length) throw new Error(`No history found for character "${name}".`);
-
-    await setDefaultCharacter(userId, name);
 
     return rows[0].content;
 }
@@ -234,9 +197,6 @@ async function getMetadata(card, personalCharacterName, userId) {
 }
 
 module.exports = {
-    getDefaultCharacter,
-    setDefaultCharacter,
-    resolveCharacterName,
     fetchCharacter,
     getCharacterData,
     getFirstMessage,

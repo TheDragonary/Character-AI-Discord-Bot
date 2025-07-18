@@ -2,7 +2,7 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { sendCharacterMessage } = require('../../webhookHandler');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteCharacters, autocompleteUserCharacters } = require('../../autocomplete');
-const { setDefaultCharacter, getFirstMessage, addCharacter, deleteCharacter, getCharacterLists } = require('../../utils/characterUtils');
+const { getFirstMessage, addCharacter, deleteCharacter, getCharacterLists } = require('../../utils/characterUtils');
 const { addCharacterHistory, checkHistoryExists } = require('../../utils/characterHistoryUtils');
 const { normaliseMetadata } = require('../../utils/formatUtils');
 const db = require('../../db');
@@ -60,8 +60,6 @@ module.exports = {
                     const reply = await getFirstMessage(userId, interaction.user.displayName || interaction.user.username, name);
 
                     if (!(await checkHistoryExists(userId, name))) await addCharacterHistory(userId, name, 'character', reply);
-
-                    await setDefaultCharacter(userId, name);
 
                     await sendCharacterMessage({
                         userId,

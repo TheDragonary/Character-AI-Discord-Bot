@@ -20,8 +20,8 @@ async function createWebhook(guildId, channel) {
         try {
             const oldWebhook = new WebhookClient({ id: existing.webhook_id, token: existing.webhook_token });
             await oldWebhook.delete();
-        } catch (err) {
-            console.warn('Failed to delete old webhook from Discord:', err.message);
+        } catch (error) {
+            console.warn('Failed to delete old webhook from Discord:', error.message);
         }
 
         await db.query('DELETE FROM guild_webhooks WHERE guild_id = $1', [guildId]);
@@ -48,7 +48,9 @@ async function getGuildWebhook(guildId, channel) {
         return new WebhookClient({ id: webhookInfo.webhook_id, token: webhookInfo.webhook_token });
     }
     
-    const webhook = await createWebhook(guildId, channel);
+    const baseChannel = channel.isThread() ? channel.parent : channel;
+    const webhook = await createWebhook(guildId, baseChannel);
+
     return new WebhookClient({ id: webhook.id, token: webhook.token });
 }
 
@@ -69,15 +71,18 @@ async function getCharacterWithWebhook(userId, name, channel) {
 }
 
 async function sendCharacterMessage({ userId, name, message, channel }) {
-    const character = await getCharacterWithWebhook(userId, name, channel);
+    const baseChannel = channel.isThread() ? channel.parent : channel;
+    const character = await getCharacterWithWebhook(userId, name, baseChannel);
     const chunks = splitMessage(message);
+    const threadId = channel.isThread() ? channel.id : undefined;
 
     try {
         for (let chunk of chunks) {
             await character.webhookClient.send({
                 content: chunk,
                 username: character.name,
-                avatarURL: character.avatarURL
+                avatarURL: character.avatarURL,
+                threadId
             });
         }
     } catch (error) {
@@ -87,13 +92,14 @@ async function sendCharacterMessage({ userId, name, message, channel }) {
             const guildId = channel.guild.id;
             await db.query('DELETE FROM guild_webhooks WHERE guild_id = $1', [guildId]);
 
-            const newWebhookClient = await getGuildWebhook(guildId, channel);
+            const newWebhookClient = await getGuildWebhook(guildId, baseChannel);
 
             for (let chunk of chunks) {
                 await newWebhookClient.send({
                     content: chunk,
                     username: character.name,
-                    avatarURL: character.avatarURL
+                    avatarURL: character.avatarURL,
+                    threadId
                 });
             }
         } else {
