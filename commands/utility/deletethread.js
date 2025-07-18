@@ -37,7 +37,7 @@ module.exports = {
             });
 
             setTimeout(() => {
-                channel.delete('User ended the character chat');
+                channel.delete();
             }, 1000);
         } catch (error) {
             console.error('Error deleting thread:', error);

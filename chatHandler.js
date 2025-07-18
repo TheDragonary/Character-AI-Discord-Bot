@@ -3,7 +3,6 @@ const { getAIResponse } = require('./ai/aiResponse');
 const { getCharacterData } = require('./utils/characterUtils');
 const { getCharacterHistory, addCharacterHistory } = require('./utils/characterHistoryUtils');
 const { formatCharacterFields } = require('./utils/formatUtils');
-const db = require('./db');
 
 const CHARACTER_HISTORY_LIMIT = 20;
 

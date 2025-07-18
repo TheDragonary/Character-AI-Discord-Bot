@@ -1,11 +1,8 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const { sendCharacterMessage } = require('../../webhookHandler');
 const { extractImageData } = require('../../cardReader');
 const { autocompleteCharacters, autocompleteUserCharacters } = require('../../autocomplete');
-const { getFirstMessage, addCharacter, deleteCharacter, getCharacterLists } = require('../../utils/characterUtils');
-const { addCharacterHistory, checkHistoryExists } = require('../../utils/characterHistoryUtils');
+const { addCharacter, deleteCharacter, getCharacterLists } = require('../../utils/characterUtils');
 const { normaliseMetadata } = require('../../utils/formatUtils');
-const db = require('../../db');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -47,27 +44,7 @@ module.exports = {
                 if (!name) throw new Error('Character name is missing or invalid in the card metadata.');
 
                 await addCharacter(userId, metadata, image.url);
-                await interaction.editReply(`✅ Added **${name}** to your character list.`);
-
-                const followUpMsg = await interaction.followUp("Click 👋 to send the first message.");
-                await followUpMsg.react('👋');
-
-                const filter = (reaction, user) =>
-                    reaction.emoji.name === '👋' && user.id === interaction.user.id;
-
-                const collector = followUpMsg.createReactionCollector({ filter, max: 1, time: 30000 });
-                collector.on('collect', async () => {
-                    const reply = await getFirstMessage(userId, interaction.user.displayName || interaction.user.username, name);
-
-                    if (!(await checkHistoryExists(userId, name))) await addCharacterHistory(userId, name, 'character', reply);
-
-                    await sendCharacterMessage({
-                        userId,
-                        characterNameOverride: name,
-                        message: reply,
-                        channel: interaction.channel
-                    });
-                });
+                await interaction.editReply(`✅ Added **${name}** to your character list.\nRun \`/chat character:\` to start a new chat with your character.`);
             } catch (error) {
                 console.error(error);
                 await interaction.editReply(`❌ ${error.message}`);

@@ -11,7 +11,7 @@ module.exports = {
         .setDescription('Start a thread to chat with a character')
         .addStringOption(option =>
             option.setName('character')
-                .setDescription('Name of the character')
+                .setDescription('Character name')
                 .setRequired(true)
                 .setAutocomplete(true))
         .addStringOption(option =>
