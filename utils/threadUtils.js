@@ -1,5 +1,13 @@
 const db = require('../db');
 
+async function getThreadInfo(threadId, fields = '*') {
+    const { rows } = await db.query(
+        `SELECT ${fields} FROM character_threads WHERE thread_id = $1`,
+        [threadId]
+    );
+    return rows[0] || null;
+}
+
 async function getDefaultThreadChannel(guildId) {
     const { rows } = await db.query(
         `SELECT default_thread_channel_id FROM guild_settings WHERE guild_id = $1`,
@@ -44,6 +52,7 @@ async function deleteCharacterThread(threadId) {
 }
 
 module.exports = {
+    getThreadInfo,
     getDefaultThreadChannel,
     getCharacterIdByName,
     createCharacterThread,

@@ -1,7 +1,7 @@
 const { Events, MessageFlags } = require('discord.js');
 const { handleCharacterChat } = require('../chatHandler');
 const { sendCharacterMessage } = require('../webhookHandler');
-const { getThreadCharacter } = require('../utils/threadUtils');
+const { getThreadInfo, getThreadCharacter } = require('../utils/threadUtils');
 
 function cleanPrompt(content) {
     return content
@@ -21,26 +21,25 @@ module.exports = {
         const username = message.author.displayName || message.author.username;
 
         try {
-            if (message.channel.isThread()) {
-                const character = await getThreadCharacter(message.channel.id);
-                if (!character) return;
+            const threadInfo = await getThreadInfo(message.channel.id);
+            const character = await getThreadCharacter(message.channel.id);
+            if (!threadInfo || !character || (threadInfo.user_id !== userId)) return;
 
-                await message.channel.sendTyping();
+            await message.channel.sendTyping();
 
-                const response = await handleCharacterChat({
-                    userId,
-                    username,
-                    prompt,
-                    name: character.character_name
-                });
+            const response = await handleCharacterChat({
+                userId,
+                username,
+                prompt,
+                name: character.character_name
+            });
 
-                await sendCharacterMessage({
-                    userId,
-                    name: character.character_name,
-                    message: response,
-                    channel: message.channel
-                });
-            }
+            await sendCharacterMessage({
+                userId,
+                name: character.character_name,
+                message: response,
+                channel: message.channel
+            });
         } catch (error) {
             console.error(error);
             await message.reply(error.message || 'An error occurred while sending the message.');

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
-const { deleteCharacterThread } = require('../../utils/threadUtils');
+const { getThreadInfo, deleteCharacterThread } = require('../../utils/threadUtils');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,10 +13,18 @@ module.exports = {
     async execute(interaction) {
         try {
             const channel = interaction.channel;
+            const threadOwner = await getThreadInfo(channel.id, 'user_id');
 
             if (!channel.isThread()) {
                 return interaction.reply({
                     content: 'This command can only be used inside a thread.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            if (threadOwner !== interaction.user.id) {
+                return interaction.reply({
+                    content: 'You are not the owner of this thread.',
                     flags: MessageFlags.Ephemeral
                 });
             }
