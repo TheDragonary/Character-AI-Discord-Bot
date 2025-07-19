@@ -26,20 +26,6 @@ async function getFirstMessage(userId, username, name) {
     return first_mes;
 }
 
-async function getLastMessage(userId, name) {
-    const { rows } = await db.query(
-        `SELECT content FROM character_history
-         WHERE user_id = $1 AND character_name = $2 AND role = 'character'
-         ORDER BY timestamp DESC
-         LIMIT 1`,
-        [userId, name]
-    );
-
-    if (!rows.length) throw new Error(`No history found for character "${name}".`);
-
-    return rows[0].content;
-}
-
 async function checkCharacterList(userId, name) {
     const character = await fetchCharacter(userId, name, 'user_id');
     if (!character) return null;
@@ -200,7 +186,6 @@ module.exports = {
     fetchCharacter,
     getCharacterData,
     getFirstMessage,
-    getLastMessage,
     checkCharacterList,
     getUserCharacterList,
     getGlobalCharacterList,
