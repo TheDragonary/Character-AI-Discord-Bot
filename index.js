@@ -49,12 +49,29 @@ client.on(Events.ThreadDelete, async thread => {
 	try {
 		await deleteCharacterThread(thread.id);
 	} catch (error) {
-		console.error('Error deleting thread record:', error);
+		console.error('Error cleaning up thread data:', error);
 	}
 });
 
-client.on('guildDelete', async (guild) => {
+client.on(Events.ChannelDelete, async channel => {
+	try {
+		if (channel.isThread()) {
+			await db.query(`DELETE FROM character_threads WHERE thread_id = $1`, [channel.id]);
+		} else {
+			await db.query(`
+				DELETE FROM character_threads
+				WHERE parent_channel_id = $1`,
+				[channel.id]
+			);
+		}
+	} catch (error) {
+		console.error('Error cleaning up channel data:', error);
+	}
+});
+
+client.on(Events.GuildDelete, async guild => {
     try {
+		await db.query(`DELETE FROM character_threads WHERE guild_id = $1`, [guild.id]);
         await db.query('DELETE FROM guild_settings WHERE guild_id = $1', [guild.id]);
         await db.query('DELETE FROM guild_webhooks WHERE guild_id = $1', [guild.id]);
     } catch (error) {

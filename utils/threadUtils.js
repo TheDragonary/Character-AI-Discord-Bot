@@ -28,12 +28,12 @@ async function getCharacterIdByName(userId, name) {
     return rows[0].id;
 }
 
-async function createCharacterThread(threadId, guildId, userId, characterId) {
+async function createCharacterThread(threadId, channelId, guildId, userId, characterId) {
     await db.query(
-        `INSERT INTO character_threads (thread_id, guild_id, user_id, character_id)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO character_threads (thread_id, parent_channel_id, guild_id, user_id, character_id)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (thread_id) DO UPDATE SET character_id = EXCLUDED.character_id`,
-        [threadId, guildId, userId, characterId]
+        [threadId, channelId, guildId, userId, characterId]
     );
 }
 

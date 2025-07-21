@@ -50,7 +50,7 @@ module.exports = {
         });
 
         const characterId = await getCharacterIdByName(userId, name);
-        await createCharacterThread(thread.id, guildId, userId, characterId);
+        await createCharacterThread(thread.id, threadParent.id, guildId, userId, characterId);
         await thread.members.add(userId);
 
         const history = await getCharacterHistory(userId, name);
