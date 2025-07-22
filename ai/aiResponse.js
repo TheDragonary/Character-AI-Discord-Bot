@@ -3,36 +3,53 @@ const { getOpenAIResponse } = require('./openaiClient');
 const { getLocalResponse } = require('./localClient');
 const db = require('../db');
 
+const modelProviderMap = {
+    local: ['koboldcpp'],
+    openai: ['gpt', 'mistral', 'deepseek'],
+    google: ['gemini', 'gemma'],
+};
+
 function detectProviderFromModel(model) {
     const lower = model?.toLowerCase() || '';
-    if (lower.includes('koboldcpp')) return 'local';
-    if (lower.includes('gpt')) return 'openai';
-    if (lower.includes('gemini') || lower.includes('gemma')) return 'google';
-    if (lower.includes('mistral')) return 'openai';
-    if (lower.includes('deepseek')) return 'deepseek';
+
+    for (const [provider, keywords] of Object.entries(modelProviderMap)) {
+        if (keywords.some(keyword => lower.includes(keyword))) return provider;
+    }
 
     return null;
 }
 
+const openAIModelConfigMap = [
+    {
+        keywords: ['gpt'],
+        baseURL: 'https://api.openai.com/v1',
+        apiKey: process.env.OPENAI_API_KEY
+    },
+    {
+        keywords: ['mistral'],
+        baseURL: 'https://api.mistral.ai/v1',
+        apiKey: process.env.MISTRAL_API_KEY
+    },
+    {
+        keywords: ['deepseek'],
+        baseURL: 'https://api.deepseek.com/v1',
+        apiKey: process.env.DEEPSEEK_API_KEY
+    }
+];
+
 function getOpenAIConfigForModel(model) {
-    if (model.includes('gpt')) {
-        return {
-            baseURL: 'https://api.openai.com/v1',
-            apiKey: process.env.OPENAI_API_KEY
-        };
-    } else if (model.includes('mistral')) {
-        return {
-            baseURL: 'https://api.mistral.ai/v1',
-            apiKey: process.env.MISTRAL_API_KEY
-        };
-    } else if (model.includes('deepseek')) {
-        return {
-            baseURL: 'https://api.deepseek.com/v1',
-            apiKey: process.env.DEEPSEEK_API_KEY
-        };
+    const lower = model.toLowerCase();
+
+    for (const config of openAIModelConfigMap) {
+        if (config.keywords.some(k => lower.includes(k))) {
+            return {
+                baseURL: config.baseURL,
+                apiKey: config.apiKey
+            };
+        }
     }
 
-    throw new Error('Unknown OpenAI model or missing config');
+    throw new Error('Unknown OpenAI-compatible model or missing config');
 }
 
 async function getAIResponse({ userId, tier, model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows }) {
