@@ -23,8 +23,14 @@ async function handleCharacterChat({ userId, username, prompt, name }) {
         description,
         personality,
         scenario,
+        first_mes,
         mes_example
     } = formatCharacterFields(characterData, fieldsToReplace, username, name);
+
+    if (await getCharacterHistory(userId, name, 1).then(res => res.length === 0)) {
+        await addCharacterHistory(userId, name, 'character', first_mes);
+        return first_mes;
+    }
 
     const systemPrompt = `Write ${name}'s next reply in a fictional chat between ${name} and ${username}.`;
 
