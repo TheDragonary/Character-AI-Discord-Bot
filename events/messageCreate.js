@@ -14,7 +14,7 @@ function cleanPrompt(content) {
 module.exports = {
     name: Events.MessageCreate,
     async execute(message) {
-        if (message.author.bot || message.system || message.flags.has(MessageFlags.HasSnapshot)) return;
+        if (message.author.bot || message.system || message.flags.has(MessageFlags.HasSnapshot) || message.content.trim().length === 0) return;
 
         const prompt = cleanPrompt(message.content);
         const userId = message.author.id;

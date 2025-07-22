@@ -48,4 +48,43 @@ async function autocompleteHistory(interaction, userId) {
     await handleAutocomplete(interaction, query, [userId]);
 }
 
-module.exports = { autocompleteCharacters, autocompleteGlobalCharacters, autocompleteUserCharacters, autocompleteHistory };
+async function autocompleteModels(interaction) {
+    const userId = interaction.user.id;
+    
+    const tierRes = await db.query(`SELECT tier_name FROM user_tiers WHERE user_id = $1`, [userId]);
+
+    if (tierRes.rowCount === 0) {
+        return interaction.respond([
+            { name: 'You are on the Free tier — upgrade to select a model', value: 'locked' }
+        ]);
+    }
+
+    const tierName = tierRes.rows[0].tier_name;
+
+    if (tierName === 'free') {
+        return interaction.respond([{ name: 'Model selection not available for free tier', value: 'locked' }]);
+    }
+
+    const modelsRes = await db.query(
+        `SELECT models.model_name, models.display_name FROM tier_model_access
+        JOIN models ON tier_model_access.model_name = models.model_name
+        WHERE tier_model_access.tier_name = $1`,
+        [tierName]
+    );
+
+    const focusedValue = interaction.options.getFocused().toLowerCase();
+    const filtered = modelsRes.rows
+        .filter(m => m.display_name.toLowerCase().includes(focusedValue))
+        .slice(0, 25)
+        .map(m => ({ name: m.display_name, value: m.model_name }));
+
+    await interaction.respond(filtered);
+}
+
+module.exports = {
+    autocompleteCharacters,
+    autocompleteGlobalCharacters,
+    autocompleteUserCharacters,
+    autocompleteHistory,
+    autocompleteModels
+};

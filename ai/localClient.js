@@ -18,8 +18,6 @@ function convertHistory(rows) {
 }
 
 async function getLocalResponse({ model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows }) {
-    model = 'koboldcpp';
-
     const systemParts = [
         systemPrompt,
         description,
@@ -39,9 +37,22 @@ async function getLocalResponse({ model, prompt, systemPrompt, description, pers
         temperature: 1.0
     };
 
-    console.log('Local API request:', JSON.stringify(payload, null, 2));
+    // console.log('\nLocal API request:', JSON.stringify(payload, null, 2));
+    console.log('\nLocal API request');
     const response = await openai.chat.completions.create(payload);
-    return response.choices[0].message.content;
+    
+    const inputTokens = response.usage.prompt_tokens ?? 0;
+    const outputTokens = response.usage.completion_tokens ?? 0;
+    const totalTokens = response.usage.total_tokens ?? inputTokens + outputTokens;
+
+    return {
+        content: response.choices[0].message.content,
+        usage: {
+            inputTokens,
+            outputTokens,
+            totalTokens
+        }
+    };
 }
 
 module.exports = { isLocalRunning, getLocalResponse };

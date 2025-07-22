@@ -1,26 +1,6 @@
 const { GoogleGenAI } = require("@google/genai");
 const ai = new GoogleGenAI({});
 
-let cachedGoogleModels = null;
-
-async function fetchValidGoogleModels() {
-    if (cachedGoogleModels) return cachedGoogleModels;
-
-    const response = await ai.models.list();
-    const models = response.pageInternal ?? [];
-
-    cachedGoogleModels = models
-        .filter(model => model.supportedActions.includes("generateContent"))
-        .map(model => model.name);
-
-    return cachedGoogleModels;
-}
-
-async function isValidGoogleModel(modelName) {
-  const validModels = await fetchValidGoogleModels();
-  return validModels.includes(modelName);
-}
-
 function convertHistory(rows) {
     return rows.map(row => ({
         role: row.role === 'user' ? 'user' : 'model',
@@ -29,7 +9,6 @@ function convertHistory(rows) {
 }
 
 async function getGoogleResponse({ model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows }) {
-    model = await isValidGoogleModel(model) ? model : "gemini-2.5-flash";
     const contents = [
         ...convertHistory(historyRows),
         { role: 'user', parts: [{ text: prompt }] }
@@ -60,11 +39,22 @@ async function getGoogleResponse({ model, prompt, systemPrompt, description, per
         systemInstruction: { parts: systemParts }
     };
 
-    console.log('Google AI Studio request:', JSON.stringify(payload, null, 2));
+    // console.log('\nGoogle AI Studio request:', JSON.stringify(payload, null, 2));
+    console.log('\nGoogle AI Studio request');
     const response = await ai.models.generateContent(payload);
-    return response.text;
+
+    const inputTokens = response.usageMetadata.promptTokenCount ?? 0;
+    const outputTokens = response.usageMetadata.candidatesTokenCount ?? 0;
+    const totalTokens = response.usageMetadata.totalTokenCount ?? inputTokens + outputTokens;
+
+    return {
+        content: response.text,
+        usage: {
+            inputTokens,
+            outputTokens,
+            totalTokens
+        }
+    };
 }
 
-module.exports = {
-    getGoogleResponse
-};
+module.exports = { getGoogleResponse };

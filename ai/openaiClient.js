@@ -2,32 +2,6 @@ const { baseURL, apiKey } = require('./aiSettings');
 const OpenAI = require('openai');
 const openai = new OpenAI({ baseURL, apiKey });
 
-let cachedOpenAIModels = null;
-
-async function fetchValidOpenAIModels() {
-    if (cachedOpenAIModels) return cachedOpenAIModels;
-
-    try {
-        const response = await openai.models.list();
-
-        const models = response.data.flatMap(model => {
-            const aliases = model.aliases || [];
-            return [model.id, ...aliases];
-        });
-
-        cachedOpenAIModels = models;
-        return cachedOpenAIModels;
-    } catch (error) {
-        console.error("Error fetching OpenAI models:", error);
-        return [];
-    }
-}
-
-async function isValidOpenAIModel(modelName) {
-    const validModels = await fetchValidOpenAIModels();
-    return validModels.includes(modelName);
-}
-
 function convertHistory(rows) {
     return rows.map(row => ({
         role: row.role === 'user' ? 'user' : 'assistant',
@@ -36,9 +10,6 @@ function convertHistory(rows) {
 }
 
 async function getOpenAIResponse({ model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows }) {
-    model = await isValidOpenAIModel(model) ? model : 'invalid';
-    if (model === 'invalid') throw new Error('Selected model is invalid.');
-
     const systemParts = [
         systemPrompt,
         description,
@@ -58,11 +29,22 @@ async function getOpenAIResponse({ model, prompt, systemPrompt, description, per
         temperature: 0.7
     };
 
-    console.log('OpenAI API request:', JSON.stringify(payload, null, 2));
+    // console.log('\nOpenAI API request:', JSON.stringify(payload, null, 2));
+    console.log('\nOpenAI API request');
     const response = await openai.chat.completions.create(payload);
-    return response.choices[0].message.content;
+
+    const inputTokens = response.usage.prompt_tokens ?? 0;
+    const outputTokens = response.usage.completion_tokens ?? 0;
+    const totalTokens = response.usage.total_tokens ?? inputTokens + outputTokens;
+
+    return {
+        content: response.choices[0].message.content,
+        usage: {
+            inputTokens,
+            outputTokens,
+            totalTokens
+        }
+    };
 }
 
-module.exports = {
-    getOpenAIResponse
-};
+module.exports = { getOpenAIResponse };
