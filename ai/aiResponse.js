@@ -1,6 +1,8 @@
 const { getGoogleResponse } = require('./googleClient');
 const { getOpenAIResponse } = require('./openaiClient');
 const { getLocalResponse } = require('./localClient');
+const { getOpenRouterResponse } = require('./openrouterClient');
+const openrouterModels = require('../utils/openrouterModels');
 const db = require('../db');
 
 const modelProviderMap = {
@@ -11,6 +13,8 @@ const modelProviderMap = {
 
 function detectProviderFromModel(model) {
     const lower = model?.toLowerCase() || '';
+
+     if (openrouterModels.some(m => m.model_name.toLowerCase() === lower)) return 'openrouter';
 
     for (const [provider, keywords] of Object.entries(modelProviderMap)) {
         if (keywords.some(keyword => lower.includes(keyword))) return provider;
@@ -56,8 +60,6 @@ async function getAIResponse({ userId, tier, model, prompt, systemPrompt, descri
     const provider = detectProviderFromModel(model);
     if (!provider) throw new Error(`Unknown provider for model: ${model}`);
 
-    const { baseURL, apiKey } = getOpenAIConfigForModel(model);
-
     const args = {
         model,
         prompt,
@@ -78,7 +80,11 @@ async function getAIResponse({ userId, tier, model, prompt, systemPrompt, descri
             res = await getGoogleResponse(args);
             break;
         case 'openai':
+            const { baseURL, apiKey } = getOpenAIConfigForModel(model);
             res = await getOpenAIResponse(args, baseURL, apiKey);
+            break;
+        case 'openrouter':
+            res = await getOpenRouterResponse(args);
             break;
         default:
             throw new Error(`Unsupported provider: ${provider}`);

@@ -5,6 +5,7 @@ require('dotenv').config({ quiet: true });
 
 const db = require('./db');
 const { deleteCharacterThread } = require('./utils/threadUtils');
+const { syncOpenRouterModels, syncTierModelAccess } = require('./utils/modelUtils');
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -41,7 +42,14 @@ for (const file of eventFiles) {
     }
 }
 
-client.once(Events.ClientReady, readyClient => {
+async function syncModelsAndAccess() {
+    await syncOpenRouterModels();
+    await syncTierModelAccess();
+}
+
+syncModelsAndAccess().catch(console.error);
+
+client.once(Events.ClientReady, async readyClient => {
 	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
 });
 
