@@ -58,7 +58,7 @@ async function checkUserLimits(userId, tier, model) {
     }
 
     const limitsRes = await db.query(
-        `SELECT rpm, rpd, tpm, tpd, tpm_month
+        `SELECT rpd, tpd, tpm_month
         FROM tiers
         WHERE tier_name = $1`,
         [tier]
@@ -67,7 +67,6 @@ async function checkUserLimits(userId, tier, model) {
     const limits = limitsRes.rows[0];
 
     const now = new Date();
-    const currentMinute = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
     const currentMonth = now.toISOString().slice(0, 7);   // YYYY-MM
 
     // Daily limits
@@ -83,20 +82,6 @@ async function checkUserLimits(userId, tier, model) {
     const { tokens_used: tokensToday, requests_made: requestsToday } = dayRes.rows[0];
     if (tokensToday >= limits.tpd) return { allowed: false, reason: `Daily token limit exceeded (${tokensToday}/${limits.tpd}).` };
     if (requestsToday >= limits.rpd) return { allowed: false, reason: `Daily request limit exceeded (${requestsToday}/${limits.rpd}).` };
-
-    // Per-minute limits
-    const minuteRes = await db.query(
-        `SELECT 
-            COALESCE(SUM(tokens_used), 0) AS tokens_used,
-            COALESCE(SUM(requests_made), 0) AS requests_made
-        FROM user_usage
-        WHERE user_id = $1 AND to_char(last_updated, 'YYYY-MM-DD"T"HH24:MI') = $2`,
-        [userId, currentMinute]
-    );
-
-    const { tokens_used: tokensThisMinute, requests_made: requestsThisMinute } = minuteRes.rows[0];
-    if (tokensThisMinute >= limits.tpm) return { allowed: false, reason: `Per-minute token limit exceeded (${tokensThisMinute}/${limits.tpm}).` };
-    if (requestsThisMinute >= limits.rpm) return { allowed: false, reason: `Per-minute request limit exceeded (${requestsThisMinute}/${limits.rpm}).` };
 
     // Monthly limit
     const monthRes = await db.query(
