@@ -55,15 +55,11 @@ async function autocompleteModels(interaction) {
 
     if (tierRes.rowCount === 0) {
         return interaction.respond([
-            { name: 'You are on the Free tier — upgrade to select a model', value: 'locked' }
+            { name: 'Enter to add the free tier to your account', value: 'locked' }
         ]);
     }
 
     const tierName = tierRes.rows[0].tier_name;
-
-    if (tierName === 'free') {
-        return interaction.respond([{ name: 'Model selection not available for free tier', value: 'locked' }]);
-    }
 
     const modelsRes = await db.query(
         `SELECT models.model_name, models.display_name FROM tier_model_access

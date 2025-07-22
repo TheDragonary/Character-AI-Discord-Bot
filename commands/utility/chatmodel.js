@@ -6,7 +6,7 @@ const db = require('../../db');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('chatmodel')
-        .setDescription('Set your preferred model (for Peasant tier and above)')
+        .setDescription('Set your preferred model')
         .addStringOption(option =>
             option.setName('model')
                 .setDescription('Model to use')
@@ -29,13 +29,6 @@ module.exports = {
             }
 
             const tierName = tierRes.rows[0].tier_name;
-
-            if (tierName === 'free') {
-                return interaction.reply({
-                    content: 'Model selection is not available for free tier.',
-                    flags: MessageFlags.Ephemeral
-                });
-            }
 
             const accessRes = await db.query(
                 `SELECT 1 FROM tier_model_access
