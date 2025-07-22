@@ -1,6 +1,4 @@
-const { baseURL, apiKey } = require('./aiSettings');
 const OpenAI = require('openai');
-const openai = new OpenAI({ baseURL, apiKey });
 
 function convertHistory(rows) {
     return rows.map(row => ({
@@ -9,7 +7,9 @@ function convertHistory(rows) {
     }));
 }
 
-async function getOpenAIResponse({ model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows }) {
+async function getOpenAIResponse({ model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows }, baseURL, apiKey) {
+    const openai = new OpenAI({ baseURL, apiKey });
+
     const systemParts = [
         systemPrompt,
         description,

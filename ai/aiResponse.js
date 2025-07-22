@@ -14,9 +14,32 @@ function detectProviderFromModel(model) {
     return null;
 }
 
+function getOpenAIConfigForModel(model) {
+    if (model.includes('gpt')) {
+        return {
+            baseURL: 'https://api.openai.com/v1',
+            apiKey: process.env.OPENAI_API_KEY
+        };
+    } else if (model.includes('mistral')) {
+        return {
+            baseURL: 'https://api.mistral.ai/v1',
+            apiKey: process.env.MISTRAL_API_KEY
+        };
+    } else if (model.includes('deepseek')) {
+        return {
+            baseURL: 'https://api.deepseek.com/v1',
+            apiKey: process.env.DEEPSEEK_API_KEY
+        };
+    }
+
+    throw new Error('Unknown OpenAI model or missing config');
+}
+
 async function getAIResponse({ userId, tier, model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows }) {
     const provider = detectProviderFromModel(model);
     if (!provider) throw new Error(`Unknown provider for model: ${model}`);
+
+    const { baseURL, apiKey } = getOpenAIConfigForModel(model);
 
     const args = {
         model,
@@ -38,7 +61,7 @@ async function getAIResponse({ userId, tier, model, prompt, systemPrompt, descri
             res = await getGoogleResponse(args);
             break;
         case 'openai':
-            res = await getOpenAIResponse(args);
+            res = await getOpenAIResponse(args, baseURL, apiKey);
             break;
         default:
             throw new Error(`Unsupported provider: ${provider}`);
