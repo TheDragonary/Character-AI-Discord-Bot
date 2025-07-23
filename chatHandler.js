@@ -38,6 +38,10 @@ async function handleCharacterChat({ userId, username, prompt, name }) {
 
     const reply = await getAIResponse({ userId, tier, model, prompt, systemPrompt, description, personality, scenario, mes_example, historyRows });
 
+    if (!reply) {
+        throw new Error('AI response was empty. Please try again or check your model configuration.');
+    }
+
     await addCharacterHistory(userId, name, 'user', prompt);
     await addCharacterHistory(userId, name, 'character', reply);
 
