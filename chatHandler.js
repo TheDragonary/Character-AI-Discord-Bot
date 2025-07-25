@@ -9,7 +9,8 @@ const CHARACTER_HISTORY_LIMIT = 20;
 
 async function handleCharacterChat({ userId, username, prompt, name }) {
     const { tier, model: userModel } = await getUserModelAndTier(userId);
-    const model = userModel || (await isLocalRunning() ? 'koboldcpp' : 'gemma-3-27b-it');
+    let model = userModel
+    if (model === 'koboldcpp' && !(await isLocalRunning())) model = 'gemma-3-27b-it';
 
     const limitCheck = await checkUserLimits(userId, tier, model);
     if (!limitCheck.allowed) throw new Error(limitCheck.reason);
